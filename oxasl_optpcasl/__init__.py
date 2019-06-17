@@ -54,8 +54,8 @@ class Scan:
     """
     Details of the desired scan to optimize for
     """
-    def __init__(self, duration, slices=1, slicedt=0.0, readout=0.5):
-        self.duration, self.slices, self.slicedt, self.readout = duration, slices, slicedt, readout
+    def __init__(self, duration, npld, slices=1, slicedt=0.0, readout=0.5):
+        self.duration, self.npld, self.slices, self.slicedt, self.readout = duration, npld, slices, slicedt, readout
 
     def __str__(self):
       if self.slices > 1:

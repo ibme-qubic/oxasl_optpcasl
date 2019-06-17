@@ -19,13 +19,10 @@ params = opt.ASLParams('var_multi_pCASL', 50.0/6000)
 att_dist = opt.BATDist(0.2, 2.1, 0.001, 0.3)
 
 # Details of the desired scan to optimize for
-scan = opt.Scan(duration=300, readout=0.5)
+scan = opt.Scan(duration=300, npld=6, readout=0.5)
         
 # PLD limits and step size to search over
 lims = opt.Limits(0.1, 3.0, 0.025)
-
-# Number of PLDs to optimise for
-nPLD = 6
 
 # Type of optimisation
 #opttype = opt.LOptimal([[1, 0],  [0, 0]])
@@ -33,7 +30,7 @@ opttype = opt.DOptimal()
 
 # Run the optimisation
 # Note: the output bestminVariance is not comparable between D-optimal and L-optimal
-bestPLD, numAv, bestminVariance = opt.optimize(opttype, params, att_dist, scan, nPLD, lims)
+bestPLD, numAv, bestminVariance = opt.optimize(opttype, params, att_dist, scan, lims)
 
 ## Example plotting of the CRLB SDs
 

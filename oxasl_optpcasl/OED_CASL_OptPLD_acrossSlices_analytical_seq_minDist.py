@@ -10,7 +10,7 @@ import numpy as np
 
 from ._version import __version__
 
-def optimize(opttype, params, att_dist, scan, numPLD, lims, log=sys.stdout):
+def optimize(opttype, params, att_dist, scan, lims, log=sys.stdout):
     """
     Optimise the PLDs of a multi-PLD PCASL protocol
     
@@ -18,7 +18,6 @@ def optimize(opttype, params, att_dist, scan, numPLD, lims, log=sys.stdout):
     :param params: ASL parameters
     :param att_dist: ATT time distribution and weighting
     :param scan: Scan details to optimize for
-    :param numPLD: Number of PLDs to optimize for
     :param lims: PLD limiting values (max/min)
     :param log: Stream-like object for logging output
     """
@@ -26,7 +25,7 @@ def optimize(opttype, params, att_dist, scan, numPLD, lims, log=sys.stdout):
     log.write("OPTPCASL v%s\n\n" % __version__)
     log.write("Optimizing PLDs for %s\n" % scan)
     log.write("PLD search limits: %s\n" % lims)
-    log.write("Optimizing for %i PLDs\n" % numPLD)
+    log.write("Optimizing for %i PLDs\n" % scan.npld)
     log.write("%s\n" % str(att_dist))
     log.write("Optimization method: %s\n" % opttype.name)
 
@@ -35,7 +34,6 @@ def optimize(opttype, params, att_dist, scan, numPLD, lims, log=sys.stdout):
     count = 0
     allCost = []
     allPLD = []
-    #print('numPLD = %i' % numPLD)
 
     # Initialise the PLDs and check that the number of avearges > 0. Reduce
     # the PLD range if not
@@ -45,7 +43,7 @@ def optimize(opttype, params, att_dist, scan, numPLD, lims, log=sys.stdout):
     while TRWeight < 1:
 
         # Initial sequence of PLDs spaced evenly between upper and lower bound
-        PLD = np.linspace(lims.lb, lims.ub - PLDSubtract, numPLD)
+        PLD = np.linspace(lims.lb, lims.ub - PLDSubtract, scan.npld)
         PLD = np.round(PLD*factor) / factor
         params.PLD = PLD
         #print("PLDs", params.PLD)
@@ -63,7 +61,7 @@ def optimize(opttype, params, att_dist, scan, numPLD, lims, log=sys.stdout):
         # Each time through all of the samples, save them
         oldPLD = np.copy(PLD)
 
-        for pld_idx in range(numPLD):
+        for pld_idx in range(scan.npld):
 
             #print("\nDoing PLD %i" % pld_idx)
 
@@ -73,7 +71,7 @@ def optimize(opttype, params, att_dist, scan, numPLD, lims, log=sys.stdout):
             # where we use the upper/lower bounds instead of the previous/next PLD
             if pld_idx == 0:
                 start, stop = lims.lb, PLD[pld_idx+1]
-            elif pld_idx == numPLD-1:
+            elif pld_idx == scan.npld-1:
                 start, stop = PLD[pld_idx-1], lims.ub
             else:
                 start, stop = PLD[pld_idx-1], PLD[pld_idx+1]
@@ -118,7 +116,7 @@ def optimize(opttype, params, att_dist, scan, numPLD, lims, log=sys.stdout):
                     # that the shortest PLD allows for the preceding
                     # slices. The PLDs given out will be for the first
                     # slice.
-                    otherInd = np.concatenate((np.arange(pld_idx), np.arange(pld_idx+1, numPLD)))
+                    otherInd = np.concatenate((np.arange(pld_idx), np.arange(pld_idx+1, scan.npld)))
                     params.PLD[otherInd, :] = np.tile(PLD[otherInd, np.newaxis], (1, PLDTryL)) + (slice*scan.slicedt)
                     params.PLD[pld_idx, :] = PLDTry + (slice*scan.slicedt)
                     params.t = params.tau + params.PLD
