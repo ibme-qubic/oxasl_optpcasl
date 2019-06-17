@@ -25,8 +25,8 @@ scan = opt.Scan(duration=300, npld=6, readout=0.5)
 lims = opt.Limits(0.1, 3.0, 0.025)
 
 # Type of optimisation
-#opttype = opt.LOptimal([[1, 0],  [0, 0]])
-opttype = opt.DOptimal()
+opttype = opt.LOptimal([[1, 0],  [0, 0]])
+#opttype = opt.DOptimal()
 
 # Run the optimisation
 # Note: the output bestminVariance is not comparable between D-optimal and L-optimal
@@ -41,7 +41,7 @@ covOptProtocol = np.zeros((scan.slices, len(params.bat), 2, 2))
 for sliceN in range(scan.slices):
     params.t = params.tau + np.array(params.pld) + scan.slicedt*sliceN
     #numAv, TotalTR = TRWeightingOrNAveFloor(params, scanTime, 1, sliceN, scan.slicedt, tReadout)
-    covOptProtocol[sliceN, ...], _ = opt.covOEDNAveFloor(params, scan, sliceN)
+    covOptProtocol[sliceN, ...], _ = opttype.covOEDNAveFloor(params, scan, sliceN)
 
 # Plot optimized protocol
 plt.subplot(1, 2, 1)
