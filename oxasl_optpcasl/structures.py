@@ -3,7 +3,7 @@ Basic data structures used in optpcasl
 """
 import numpy as np
 
-class ASLParams:
+class ASLParams(object):
     """
     Define the ASL parameters (as per Buxton et al. MRM 1998)
     """
@@ -18,7 +18,7 @@ class ASLParams:
         self.tau = kwargs.get("tau", 1.4)
         self.noise = kwargs.get("noise", 0.002)
 
-class BATDist:
+class BATDist(object):
     """
     ATT (BAT) distribution
 
@@ -39,7 +39,7 @@ class BATDist:
     def __str__(self):
         return "BAT distribution: %i values between %.2fs and %fs (weight taper=%.2fs)" % (self.length, self.start, self.end, self.taper)
 
-class Scan:
+class Scan(object):
     """
     Details of the desired scan to optimize for
     """
@@ -47,12 +47,12 @@ class Scan:
         self.duration, self.npld, self.slices, self.slicedt, self.readout = duration, npld, slices, slicedt, readout
 
     def __str__(self):
-      if self.slices > 1:
-          return "%is 2D scan with %i slices (time per slice=%.5fs) and readout time %.2fs" % (self.duration, self.slices, self.slicedt, self.readout)
-      else:
-          return "%is 3D scan with readout time %fs" % (self.duration, self.readout)
+        if self.slices > 1:
+            return "%is 2D scan with %i slices (time per slice=%.5fs) and readout time %.2fs" % (self.duration, self.slices, self.slicedt, self.readout)
+        else:
+            return "%is 3D scan with readout time %fs" % (self.duration, self.readout)
 
-class Limits:
+class Limits(object):
     """
     PLD limits and step size to search over
     """

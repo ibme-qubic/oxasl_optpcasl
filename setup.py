@@ -81,7 +81,7 @@ kwargs = {
     'long_description' : get_filetext(module_dir, 'README.md'),
     'long_description_content_type' : 'text/markdown',
     'url' : 'https://oxasl_optpcasl.readthedocs.io/',
-    'author' : 'Martin Craig',
+    'author' : 'Joseph Woods, Martin Craig',
     'author_email' : 'martin.craig@eng.ox.ac.uk',
     'license' : 'License granted by University of Oxford for use by academics carrying out research and not for use by consumers or commercial businesses. See LICENSE file for more details',
     'install_requires' : get_requirements(module_dir),
