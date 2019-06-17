@@ -46,12 +46,10 @@ def optimize(opttype, params, att_dist, scan, lims, log=sys.stdout):
         PLD = np.linspace(lims.lb, lims.ub - PLDSubtract, scan.npld)
         PLD = np.round(PLD*factor) / factor
         params.PLD = PLD
-        #print("PLDs", params.PLD)
-        # Sequence of TIs corresponding to the PLDs. FIXME tau could be sequence
+
+        # Sequence of TIs corresponding to the PLDs. FIXME tau could be sequence?
         params.t = params.tau + params.PLD
-        #print("TIs", params.t)
         TRWeight, _ = TRWeightingOrNAveFloor(params, scan, 0, 0)
-        #print("TRWeight", TRWeight)
 
         if TRWeight < 1:
             PLDSubtract += 0.1
@@ -62,9 +60,6 @@ def optimize(opttype, params, att_dist, scan, lims, log=sys.stdout):
         oldPLD = np.copy(PLD)
 
         for pld_idx in range(scan.npld):
-
-            #print("\nDoing PLD %i" % pld_idx)
-
             # Work out the set of available PLDs to search over. This is a series of
             # values between the PLD before the current PLD and the PLD after, with a 
             # step size of lims.step however special case for first and last PLDs
@@ -77,7 +72,6 @@ def optimize(opttype, params, att_dist, scan, lims, log=sys.stdout):
                 start, stop = PLD[pld_idx-1], PLD[pld_idx+1]
 
             PLDTry = np.round(np.arange(start, stop+0.001, lims.step), 5)
-            #print("PLDTry", PLDTry)
 
             PLDTryL = len(PLDTry)
             if PLDTryL > 0:
@@ -120,11 +114,6 @@ def optimize(opttype, params, att_dist, scan, lims, log=sys.stdout):
                     params.PLD[otherInd, :] = np.tile(PLD[otherInd, np.newaxis], (1, PLDTryL)) + (slice*scan.slicedt)
                     params.PLD[pld_idx, :] = PLDTry + (slice*scan.slicedt)
                     params.t = params.tau + params.PLD
-                    #print(params.PLD)
-                    #print("PLDs shape", params.PLD.shape, np.mean(params.PLD))
-                    #print("t shape", params.t.shape, np.mean(params.t))
-                    #print("distWeightCurr shape", distWeightCurr.shape, np.mean(distWeightCurr))
-                    #print("distInd shape", distInd.shape, np.mean(distInd))
                     
                     variance[:, distInd[:, slice], slice] = opttype.HessianCov(params, scan, slice)
 
@@ -139,36 +128,26 @@ def optimize(opttype, params, att_dist, scan, lims, log=sys.stdout):
                 # I was using the pseudo-inverse, but leave here for
                 # robustness)
                 if np.any(varianceMean == 0):
-                    print('WARNING: Some variances are zero. Setting to inf...')
+                    log.write('WARNING: Some variances are zero. Setting to inf...\n')
                     varianceMean[varianceMean == 0] = np.inf
 
-                #print("variance shape ", variance.shape, np.mean(variance))
-                #print("varianceMean shape ", varianceMean.shape, np.mean(varianceMean))
                 # Take mean of generalised variance across the BAT distribution
                 cost = distWeightCurr * varianceMean                       # Weight by the ATT distribution
                 cost[distWeightCurr == 0] = 0                              # To correct for 0*nan in att_dist.weight * CovCurr
                 cost[np.isnan(cost)] = np.inf                                 # To correct for 0*inf in att_dist.weight * CovCurr
-                #print("cost shape ", cost.shape, np.mean(cost))
                 
-                #sliceWeighting = sum(distInd,2)./allSliceL;               % Weighting based on how many slices contribute
-                
+                #sliceWeighting = sum(distInd, 1)/allSliceL;               % Weighting based on how many slices contribute
                 sliceWeighting = np.sum(distInd, 1)/np.arange(1, scan.slices+1)  # Weighting based on how many slices contribute
-                #print("sliceWeighting shape ", sliceWeighting.shape, np.mean(sliceWeighting))
-
+                
                 costWeighted = cost * np.tile(sliceWeighting[np.newaxis, :], (PLDTryL, 1))   # Apply the slice weighting
-                #print("costWeighted shape ", costWeighted.shape)
                 costMean = np.mean(costWeighted, 1)                        # Weighted mean
-                #print("costMean shape ", costMean.shape, np.mean(costMean))
                 
                 # Find the PLD that leads to the minimum generalised variance
                 minVariance = np.min(costMean)
                 jj = np.argmin(costMean)
-                #print("Best is %i" % jj)
-
+                
                 PLD[pld_idx] = PLDTry[jj]
-                #print("PLDs ", PLD)
-                #print("oldPLD ", oldPLD)
-
+                
                 # Save the results from each step for visualising
                 allCost.append(minVariance)
                 allPLD.append(PLD)
@@ -176,9 +155,6 @@ def optimize(opttype, params, att_dist, scan, lims, log=sys.stdout):
                 count += 1
                 
         # If the PLDs stay constant, then exit
-        #print("PLDs ", PLD)
-        #print("oldPLD ", oldPLD)
-        #print("minVar ", minVariance)
         if not np.any(PLD != oldPLD):
             log.write("\nFinished optimization after %i iters - PLDs unchanged\n" % count)
             break
@@ -219,12 +195,182 @@ def TRWeightingOrNAveFloor(params, scan, tDim=0, slice=0):
         TotalTR = round(TR*(params.num_enc+1), 5)
     elif fname == 'var_multi_pCASL':
         TR = params.t + scan.readout - (slice*scan.slicedt)
-        #print("TR shape ", TR.shape)
         TotalTR = np.round((2*(np.sum(TR, tDim))), 5)
 
     elif fname == 'look-locker':
         TR = params.t(end, 1) + (scan.readout/2) - (slice*scan.slicedt)
         TotalTR = np.round(TR*2, 5)
 
-    #print(TotalTR.shape)
     return np.floor(np.round(np.squeeze(scan.duration/TotalTR), 5)), TotalTR
+
+class OptimizationMethod:
+
+    def resize_inputs(self, params):
+        """
+        Returns a modified version of params with t, tau, f and BAT
+        all set to a common shape
+        """
+        params = copy.copy(params)
+        params.tau = np.full(params.t.shape, params.tau)
+        
+        A_f = params.f
+        A_BAT = params.bat
+
+        # Tile t and tau so third dimension has size of BAT
+        params.t = np.squeeze(np.tile(params.t[..., np.newaxis], [1, 1, params.bat.shape[0]]))
+        params.tau = np.squeeze(np.tile(params.tau[..., np.newaxis], [1, 1, params.bat.shape[0]]))
+
+        # Make f and BAT the same dimensions as t
+        # f is constant, BAT is 1D (which should be preserved in the 3rd dimension)
+        params.f = np.full(params.t.shape, params.f)
+        if len(params.t.shape) == 2:
+            params.bat = np.tile(params.bat[np.newaxis, :], list(params.t.shape)[:-1] + [1])
+        else:
+            params.bat = np.tile(params.bat[np.newaxis, np.newaxis, :], list(params.t.shape)[:-1] + [1])
+
+        # FIXME deleted MATLAB error handling here for 1 PLD - test?
+        return params
+
+    def sensitivity(self, params):
+        """
+        This function calculates the sensitivty functions of the Buxtion CASL
+        model (Buxton et al. MRM 1998) and are given in Woods et al. MRM 2019.
+        The BAT sensitivty function assumes a fixed outflow in T1prime in order
+        to simplify the equations.
+        """
+
+        # This sensitivty function includes an assumed fixed T1prime, so we fix the
+        # f in T1prime to a sensible value.
+        fixedF = 50.0/6000
+
+        T1prime = 1.0/((1.0/params.t1t) + (fixedF/params.lam))
+        M = 2*params.m0b * params.alpha * T1prime * np.exp(-params.bat/params.t1b)
+
+        # Initialise
+        df = np.zeros(params.t.shape, dtype=np.float32)
+        dBAT = np.zeros(params.t.shape, dtype=np.float32)
+
+        # for t between deltaT and tau plus deltaT
+        tRegion = np.logical_and(params.t > params.bat, params.t <= (params.tau + params.bat))
+        t = params.t[tRegion]
+        # if sum(size(params.bat)>1) > 1 # Check whether multiple values are being used
+        if np.any(np.array(params.bat.shape) > 1):
+            BAT = params.bat[tRegion]
+            f = params.f[tRegion]
+            M_temp = M[tRegion]
+        else:
+            BAT = params.bat
+            f = params.f
+            M_temp = M
+
+        T1prime_temp = T1prime
+
+        df[tRegion] = M_temp * (1 - np.exp((BAT-t) / T1prime_temp))
+        dBAT[tRegion] = M_temp * f * ((-1.0/params.t1b) - np.exp((BAT-t) / T1prime_temp) * ((1.0/T1prime_temp) - (1.0/params.t1b)))
+
+        # for t greater than tau plus deltaT
+        tRegion = params.t > (params.tau+params.bat)
+        t = params.t[tRegion]
+        if np.any(np.array(params.tau.shape) >1):
+            tau = params.tau[tRegion]
+        else:
+            tau = params.tau
+
+        # if sum(size(params.bat)>1) > 1
+        if np.any(np.array(params.bat.shape) > 1):
+            BAT = params.bat[tRegion]
+            f = params.f[tRegion]
+            M_temp = M[tRegion]
+        else:
+            BAT = params.bat
+            f = params.f
+            M_temp = M
+        T1prime_temp = T1prime
+
+        df[tRegion] = M_temp * np.exp((-t+tau+BAT) / T1prime_temp) * (1-np.exp(-tau/T1prime_temp))
+        dBAT[tRegion] = M_temp * f * (1-np.exp(-tau/T1prime_temp)) * np.exp((BAT+tau-t)/T1prime_temp) * ((1.0/T1prime_temp)-(1.0/params.t1b))
+
+        return df, dBAT
+
+    def Hessian(self, params, scan, slice, tDim=0, **kwargs):
+        """
+        This function calculates an approximation of the Hessian for optimising
+        an experimental design. param is the struct containing the variables,
+        
+        Inputs:
+                param    - A struct containing all of the parameters needed for the
+                        Buxton standard CASL model (Buxton et al. MRM 1998)
+                scanTime - The scan duration avalaible for the ASL protocol (units: seconds)
+                slice    - The number of slices to optimise for (units: seconds)
+                scan.slicedt  - The time to acquire each slice (the inter-slice
+                        timing) (units: seconds)
+        """
+        # Get parameters into the correct matrix sizes
+        params = self.resize_inputs(params)
+
+        # Work out how many average we can fit in and divide by the noise SD
+        TRWeight = kwargs.get("nAverage", None)
+        if TRWeight is None:
+            TRWeight, _ = TRWeightingOrNAveFloor(params, scan, tDim, slice)
+
+        TRWeight = TRWeight/(params.noise**2)
+        df, dBAT = self.sensitivity(params)
+
+        # Form the Hessian 
+        # Hessian dimensions can be: 2 x 2 x PLD x Tau x BAT x f
+        H = np.zeros(list(df.shape)[1:]+ [2, 2])
+        H[..., 0, 0] = TRWeight * np.squeeze(np.sum(df*df, tDim))
+        H[..., 0, 1] = TRWeight * np.squeeze(np.sum(df*dBAT, tDim))
+        H[..., 1, 0] = TRWeight * np.squeeze(np.sum(dBAT*df, tDim))
+        H[..., 1, 1] = TRWeight * np.squeeze(np.sum(dBAT*dBAT, tDim))
+        return H
+
+    def covOEDNAveFloor(self, params, scan, slice, **kwargs):
+        """
+        This function calculates an approximation of the Hessian for optimising
+        an experimental design. param is the struct containing the variables,
+        """
+        H = self.Hessian(params, scan, slice, **kwargs)
+
+        # Numpy determinant function batches over leading dimensions
+        covMatrix = np.linalg.inv(H)
+
+        # Change into (ml/100g/min)
+        covMatrix[..., 0, 0] = covMatrix[..., 0, 0] * 6000 * 6000
+        return covMatrix, H
+
+class LOptimal(OptimizationMethod):
+    """
+    Choose CBF variance to minimise
+    """
+    def __init__(self, A):
+        self.A = A
+        self.name = 'L-optimal'
+
+    def HessianCov(self, params, scan, slice):
+        H = self.Hessian(params, scan, slice)
+        
+        # Numpy matrix ops batch over leading dimensions
+        cov = np.abs(np.matmul(self.A, np.linalg.inv(H)))
+
+        # Correct for inf*0 errors in A*inverse
+        cov[np.isnan(cov)] = np.inf
+
+        # Force trace function to batch across leading dimensions
+        r = np.trace(cov, axis1=-1, axis2=-2)
+        return r
+
+class DOptimal(OptimizationMethod):
+    """
+    """
+    def __init__(self):
+        self.name = 'D-optimal'
+        
+    def HessianCov(self, params, scan, slice):
+        H = self.Hessian(params, scan, slice)
+        
+        # Numpy determinant function batches over leading dimensions
+        detH = np.linalg.det(H)
+
+        return 1.0/np.abs(detH)
+    

@@ -25,8 +25,8 @@ scan = opt.Scan(duration=300, npld=6, readout=0.5)
 lims = opt.Limits(0.1, 3.0, 0.025)
 
 # Type of optimisation
-opttype = opt.LOptimal([[1, 0],  [0, 0]])
-#opttype = opt.DOptimal()
+#opttype = opt.LOptimal([[1, 0],  [0, 0]])
+opttype = opt.DOptimal()
 
 # Run the optimisation
 # Note: the output bestminVariance is not comparable between D-optimal and L-optimal
