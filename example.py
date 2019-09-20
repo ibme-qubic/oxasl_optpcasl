@@ -17,13 +17,13 @@ def main():
     as per Buxton et al. MRM 1998
     """
     # Define the ASL parameters
-    params = opt.ASLParams('var_multi_pCASL', f=50.0/6000)
+    params = opt.ASLParams(opt.VAR_MULTI_PCASL, f=50.0/6000)
 
     # ATT (BAT) distribution
     att_dist = opt.BATDist(0.2, 2.1, 0.001, 0.3)
 
     # Details of the desired scan to optimize for
-    scan = opt.Scan(duration=300, npld=6, readout=0.5)
+    scan = opt.Scan(duration=300, npld=6, readout=0.5, slices=3, slicedt=0.0452)
 
     # PLD limits and step size to search over
     lims = opt.Limits(0.1, 3.0, 0.025)
@@ -51,8 +51,9 @@ def main():
     plt.ylabel('SD (ml/100g/min)')
     plt.xlabel("ATT (s)")
     plt.ylim(0, 9)
-    plt.plot(params.bat, np.squeeze(np.sqrt(np.abs(cov_optimized[..., 0, 0]))),
-             label="Optimised Protocol")
+    for slice_idx in range(scan.slices):
+        plt.plot(params.bat, np.squeeze(np.sqrt(np.abs(cov_optimized[slice_idx, :, 0, 0]))),
+                 label="Optimised Protocol - slice %i" % slice_idx)
     plt.legend()
 
     plt.subplot(1, 2, 2)
@@ -60,8 +61,9 @@ def main():
     plt.ylabel("SD (s)")
     plt.xlabel("ATT (s)")
     plt.ylim(0, 0.25)
-    plt.plot(params.bat, np.squeeze(np.sqrt(np.abs(cov_optimized[..., 1, 1]))),
-             label="Optimised Protocol")
+    for slice_idx in range(scan.slices):
+        plt.plot(params.bat, np.squeeze(np.sqrt(np.abs(cov_optimized[slice_idx, :, 1, 1]))),
+                 label="Optimised Protocol - slice %i" % slice_idx)
     plt.legend()
 
     plt.show()
