@@ -1,5 +1,5 @@
 """
-OCASL_OPTPCASL
+OXASL_OPTPCASL
 
 Python library for optimizing multi-PLD pCASL acquisitions
 Ported to Python from MATLAB
@@ -12,4 +12,4 @@ __email__ = "martin.craig@eng.ox.ac.uk"
 
 from ._version import __version__
 from .optimize import optimize, LOptimal, DOptimal, TRWeightingOrNAveFloor
-from .structures import ASLParams, BATDist, Scan, Limits
+from .structures import ASLParams, BATDist, Scan, Limits, VAR_MULTI_PCASL, VAR_TE_PCASL, LOOK_LOCKER, VAR_TE_PCASL_NPLD

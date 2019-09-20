@@ -1,14 +1,21 @@
 """
-Basic data structures used in optpcasl
+OXASL_OPTPCASL - Basic data structures used
+
+Copyright 2019 University of Oxford
 """
 import numpy as np
+
+VAR_MULTI_PCASL = 'var_multi_pCASL'
+VAR_TE_PCASL = 'var_te_pCASL'
+LOOK_LOCKER = 'look_locker'
+VAR_TE_PCASL_NPLD = 'var_te_pCASL_nPLD'
 
 class ASLParams(object):
     """
     Define the ASL parameters (as per Buxton et al. MRM 1998)
     """
-    def __init__(self, filename, f, **kwargs):
-        self.filename, self.f = filename, f
+    def __init__(self, asltype, f, **kwargs):
+        self.asltype, self.f = asltype, f
         self.bat = kwargs.get("bat", 1.0)
         self.m0b = kwargs.get("m0b", 1.0)
         self.t1b = kwargs.get("t1b", 1.65)

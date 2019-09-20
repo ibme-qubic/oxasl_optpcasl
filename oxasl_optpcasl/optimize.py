@@ -1,5 +1,7 @@
 """
-Functions for optimizing the PLDs of a multi-pld pCASL protocol
+OXASL_OPTPCASL - Functions for optimizing the PLDs of a multi-pld pCASL protocol
+
+Copyright 2019 University of Oxford
 """
 import sys
 import copy
@@ -7,16 +9,17 @@ import copy
 import numpy as np
 
 from ._version import __version__
+from .structures import VAR_MULTI_PCASL, VAR_TE_PCASL, LOOK_LOCKER, VAR_TE_PCASL_NPLD
 
 def optimize(opttype, params, att_dist, scan, lims, log=sys.stdout):
     """
     Optimise the PLDs of a multi-pld PCASL protocol
 
     :param opttype: Optimization type object (L-optimal or D-optimal)
-    :param params: ASL parameters
-    :param att_dist: ATT time distribution and weighting
-    :param scan: Scan details to optimize for
-    :param lims: pld limiting values (max/min)
+    :param params: ASLParams instance
+    :param att_dist: BATDist instance giving ATT time distribution and weighting
+    :param scan: Scan instance giving details of scan to optimize for
+    :param lims: Limits instance, giving pld limiting values (max/min)
     :param log: Stream-like object for logging output
     """
     params.bat = att_dist.dist
@@ -173,14 +176,13 @@ def TRWeightingOrNAveFloor(params, scan, time_dim=0, slice=0):
     # I round the tr since there are occaisionally computational rounding
     # errors. I have used 5 decimal places to all dense bat sampling, but I am
     # very unlikely to go finer than 0.001 density.
-    fname = params.filename
-    if fname == 'var_te_pCASL':
+    if params.asltype == VAR_TE_PCASL:
         te_ind = max(params.t[:params.num_enc, 0, 0, 0, 0], [], 0)
         tr = np.squeeze(params.t[te_ind, :, :, :, :]) + scan.readout - (slice*scan.slicedt)
         # Multiply by the number of images that have to be acquired
         total_tr = round(tr*(params.num_enc+1), 5)
 
-    elif fname == 'var_te_pCASL_nPLD':
+    elif params.asltype == VAR_TE_PCASL_NPLD:
         te_ind = max(params.t[:params.num_enc, 0, 0, 0, 0], [], 0)
         tr = 0
         for ii in range(params.multiPLD):
@@ -189,17 +191,24 @@ def TRWeightingOrNAveFloor(params, scan, time_dim=0, slice=0):
 
         # Multiply by the number of images that have to be acquired
         total_tr = round(tr*(params.num_enc+1), 5)
-    elif fname == 'var_multi_pCASL':
+    elif params.asltype == VAR_MULTI_PCASL:
         tr = params.t + scan.readout - (slice*scan.slicedt)
         total_tr = np.round((2*(np.sum(tr, time_dim))), 5)
 
-    elif fname == 'look-locker':
+    elif params.asltype == LOOK_LOCKER:
         tr = params.t(end, 1) + (scan.readout/2) - (slice*scan.slicedt)
         total_tr = np.round(tr*2, 5)
+    else:
+        raise ValueError("Unrecognized ASL type: %s" % params.asltype)
 
     return np.floor(np.round(np.squeeze(scan.duration/total_tr), 5)), total_tr
 
 class OptimizationMethod(object):
+    """
+    Optimization method base class
+    
+    Defines common methods used by L-optimal and D-optimal methods
+    """
 
     def resize_inputs(self, params):
         """
