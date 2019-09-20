@@ -136,7 +136,7 @@ def optimize(opttype, params, att_dist, scan, lims, log=sys.stdout):
                 cost[np.isnan(cost)] = np.inf                                 # To correct for 0*inf in att_dist.weight * CovCurr
 
                 #slice_weight = sum(dist_ind, 1)/allSliceL;               % Weighting based on how many slices contribute
-                slice_weight = np.sum(dist_ind, 1)/np.arange(1, scan.slices+1)  # Weighting based on how many slices contribute
+                slice_weight = np.sum(dist_ind, 1)/scan.slices            # Weighting based on how many slices contribute
 
                 cost_weighted = cost * np.tile(slice_weight[np.newaxis, :], (len(pld_trial), 1))   # Apply the slice weighting
                 cost_mean = np.mean(cost_weighted, 1)                        # Weighted mean
