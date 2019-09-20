@@ -86,6 +86,17 @@ kwargs = {
     'license' : 'License granted by University of Oxford for use by academics carrying out research and not for use by consumers or commercial businesses. See LICENSE file for more details',
     'install_requires' : get_requirements(module_dir),
     'packages' : find_packages(),
+    'package_data' : {
+        'oxasl_optpcasl.gui': ['banner.png', "oxasl.png"]
+    },
+    'entry_points' : {
+        'console_scripts' : [
+            "oxasl_optpcasl=oxasl_optpcasl.main:main",
+        ],
+        'gui_scripts' : [
+            "oxasl_optpcasl_gui=oxasl_optpcasl.gui:main",
+        ],
+    },
     'classifiers' : [
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
