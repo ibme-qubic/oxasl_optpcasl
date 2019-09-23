@@ -94,26 +94,56 @@ class PlotOutputPanel(wx.Panel):
         if self._params is None:
             return
 
+        cbf_var = np.squeeze(np.mean(np.sqrt(np.abs(self._cov_optimized[..., 0, 0])), axis=0))
+        att_var = np.squeeze(np.mean(np.sqrt(np.abs(self._cov_optimized[..., 1, 1])), axis=0))
         self._plot_axes.clear()
         if self._plot_choice.GetSelection() == 0:
             self._plot_axes.set_title("Estimated CBF error")
             self._plot_axes.set_ylabel('SD (ml/100g/min)')
             self._plot_axes.set_xlabel("ATT (s)")
-            self._plot_axes.set_ylim(0, 9)
-            self._plot_axes.plot(self._params.bat, np.squeeze(np.sqrt(np.abs(self._cov_optimized[..., 0, 0]))),
-                                 label="Optimized protocol")
+            self._plot_axes.set_ylim(0, 10)
+            self._plot_axes.plot(self._params.bat, cbf_var, label="Optimized protocol")
             self._plot_axes.legend()
-        else:
+        elif self._plot_choice.GetSelection() == 1:
             self._plot_axes.set_title("Estimated ATT error")
             self._plot_axes.set_ylabel("SD (s)")
             self._plot_axes.set_xlabel("ATT (s)")
             self._plot_axes.set_ylim(0, 0.25)
-            self._plot_axes.plot(self._params.bat, np.squeeze(np.sqrt(np.abs(self._cov_optimized[..., 1, 1]))),
-                                 label="Optimized protocol")
+            self._plot_axes.plot(self._params.bat, att_var, label="Optimized protocol")
+            self._plot_axes.legend()
+        else:
+            self._plot_axes.set_title("ASL kinetic curve")
+            self._plot_axes.set_ylabel("Relative signal")
+            self._plot_axes.set_xlabel("Time (s)")
+            atts = np.linspace(1.0, 1.6, 3)
+            for att in atts:
+                xdata, ydata = self._kinetic_model(att, self._params.tau)
+                self._plot_axes.plot(xdata, ydata, label="ATT=%.2fs" % att)
+            for pld in self._params.pld:
+                self._plot_axes.axvline(pld+self._params.tau, linestyle='--', color='green')
             self._plot_axes.legend()
 
         self._canvas.draw()
         self._canvas.Refresh()
+
+    def _kinetic_model(self, att, tau, f=50.0, lam=0.9, m0=1.0, alpha=0.85, t1b=1.65, t1t=1.445):
+        t_all = np.linspace(0, 5, 50)
+        M = np.zeros(len(t_all))
+        f = f / 6000 # Fix units
+        t1prime = 1/(1.0/t1t + f/lam)
+
+        # During bolus
+        relevant_ts = np.logical_and(t_all>att, t_all<tau+att)
+        t = t_all[relevant_ts]
+        M[relevant_ts] = np.exp(-att/t1b) * (1-np.exp(-(t-att)/t1prime))
+
+        # After bolus
+        relevant_ts = t_all > att+tau
+        t = t_all[relevant_ts]
+        M[relevant_ts] = np.exp(-att/t1b) * np.exp(-(t-tau-att)/t1prime) * (1-np.exp(-tau/t1prime))
+
+        M *= 2 * m0 * f * t1prime * alpha
+        return t_all, M
 
 class TabPage(wx.Panel):
     """
