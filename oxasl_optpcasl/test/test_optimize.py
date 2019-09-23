@@ -38,7 +38,7 @@ def test_loptimal_att():
     opttype = opt.LOptimal(A=[[0, 0], [0, 1]])
 
     best_plds, num_av, best_min_var = opt.optimize(opttype, params, att_dist, scan, lims)
-    assert np.allclose(best_plds, [0.1 0.475 0.7 1.025 1.725 2.1])
+    assert np.allclose(best_plds, [0.1, 0.475, 0.7, 1.025, 1.725, 2.1])
 
 def test_doptimal_multislice():
     """ Test D-optimal optimization method with 2D readout """
