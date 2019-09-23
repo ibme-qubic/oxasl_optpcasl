@@ -23,7 +23,6 @@ def optimize(opttype, params, att_dist, scan, lims, log=sys.stdout):
     :param log: Stream-like object for logging output
     """
     params.bat = att_dist.dist
-    log.write("OPTPCASL v%s\n\n" % __version__)
     log.write("Optimizing PLDs for %s\n" % scan)
     log.write("PLD search limits: %s\n" % lims)
     log.write("Optimizing for %i PLDs\n" % scan.npld)
