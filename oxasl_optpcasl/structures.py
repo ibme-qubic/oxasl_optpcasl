@@ -34,8 +34,8 @@ class BATDist(object):
     """
     def __init__(self, start, end, step, taper=0):
         self.start, self.end, self.step, self.taper = start, end, step, taper
-        self.dist = np.arange(start, end+step, step)
-        self.exclude_taper = np.arange(start+taper, end-taper+step, step)
+        self.dist = np.linspace(start, end, np.floor((end-start)/step))
+        self.exclude_taper = np.linspace(start+taper, end-taper, np.ceil((end-start-2*taper)/step))
         self.weight = np.concatenate((
             np.linspace(0.5, 1.0, np.floor(taper / step)),
             np.ones(int(np.ceil((end - start - 2*taper) / step))),

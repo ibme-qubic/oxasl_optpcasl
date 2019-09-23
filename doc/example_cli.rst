@@ -65,6 +65,19 @@ Varying the ATT prior distribution
 For example, to restrict the ATT prior to within a more limited range::
 
     $ oxasl_optpcasl --att-start=1.0 --att-end=2.0 --att-step=0.001 --att-taper=0.1
+    OXASL - PCASL Optimizer 0.0.1.post21
+    ====================================
+    Optimizing PLDs for 300s 3D scan with readout time 0.500000s
+    PLD search limits: PLDs between 0.10s and 3.00s in steps of 0.02500s
+    Optimizing for 6 PLDs
+    BAT distribution: 1000 values between 1.00s and 2.000000s (weight taper=0.10s)
+    Optimization method: D-optimal
+
+    Finished optimization after 24 iters - PLDs unchanged
+    Optimal PLDs: [0.6, 0.6, 0.6, 1.575, 1.8, 2.025]
+    num_av = 8
+    Scan time = 297.600000
+    DONE
 
 Varying the PLD search limits
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
