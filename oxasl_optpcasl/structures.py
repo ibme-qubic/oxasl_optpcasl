@@ -33,13 +33,15 @@ class BATDist(object):
     at the beginning and end of the distribution
     """
     def __init__(self, start, end, step, taper=0):
+        total_points = int(1 + np.ceil((end-start)/step))
+        taper_points = int(np.floor(taper / step))
         self.start, self.end, self.step, self.taper = start, end, step, taper
-        self.dist = np.linspace(start, end, np.floor((end-start)/step))
-        self.exclude_taper = np.linspace(start+taper, end-taper, np.ceil((end-start-2*taper)/step))
+        self.dist = np.linspace(start, end, total_points)
+        self.exclude_taper = np.linspace(start+taper, end-taper, total_points - 2*taper_points)
         self.weight = np.concatenate((
-            np.linspace(0.5, 1.0, np.floor(taper / step)),
-            np.ones(int(np.ceil((end - start - 2*taper) / step))),
-            np.linspace(1.0, 0.5, np.floor(taper / step)),
+            np.linspace(0.5, 1.0, taper_points),
+            np.ones(total_points - 2*taper_points),
+            np.linspace(1.0, 0.5, taper_points),
         ))
         self.length = len(self.dist)
 
