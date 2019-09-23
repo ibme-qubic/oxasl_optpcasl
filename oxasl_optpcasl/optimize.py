@@ -176,27 +176,31 @@ def TRWeightingOrNAveFloor(params, scan, time_dim=0, slice=0):
     # I round the tr since there are occaisionally computational rounding
     # errors. I have used 5 decimal places to all dense bat sampling, but I am
     # very unlikely to go finer than 0.001 density.
-    if params.asltype == VAR_TE_PCASL:
-        te_ind = max(params.t[:params.num_enc, 0, 0, 0, 0], [], 0)
-        tr = np.squeeze(params.t[te_ind, :, :, :, :]) + scan.readout - (slice*scan.slicedt)
-        # Multiply by the number of images that have to be acquired
-        total_tr = round(tr*(params.num_enc+1), 5)
-
-    elif params.asltype == VAR_TE_PCASL_NPLD:
-        te_ind = max(params.t[:params.num_enc, 0, 0, 0, 0], [], 0)
-        tr = 0
-        for ii in range(params.multiPLD):
-            ind = te_ind + ii*params.num_enc
-            tr = tr + np.squeeze(params.t[ind, :, :, :, :]) + scan.readout - (slice*scan.slicedt)
-
-        # Multiply by the number of images that have to be acquired
-        total_tr = round(tr*(params.num_enc+1), 5)
-    elif params.asltype == VAR_MULTI_PCASL:
+    #
+    # FIXME the num_enc parameter is not defined so the first two scan types will
+    # not work presently. This issue is also in the source MATLAB code. So we will
+    # disable these scan types for now until we know what this should be
+    #if params.asltype == VAR_TE_PCASL:
+    #    te_ind = max(params.t[:params.num_enc, 0, 0, 0, 0], [], 0)
+    #    tr = np.squeeze(params.t[te_ind, :, :, :, :]) + scan.readout - (slice*scan.slicedt)
+    #    # Multiply by the number of images that have to be acquired
+    #    total_tr = round(tr*(params.num_enc+1), 5)
+    #
+    #elif params.asltype == VAR_TE_PCASL_NPLD:
+    #    te_ind = max(params.t[:params.num_enc, 0, 0, 0, 0], [], 0)
+    #    tr = 0
+    #    for ii in range(params.multiPLD):
+    #        ind = te_ind + ii*params.num_enc
+    #        tr = tr + np.squeeze(params.t[ind, :, :, :, :]) + scan.readout - (slice*scan.slicedt)
+    #
+    #    # Multiply by the number of images that have to be acquired
+    #    total_tr = round(tr*(params.num_enc+1), 5)
+    if params.asltype == VAR_MULTI_PCASL:
         tr = params.t + scan.readout - (slice*scan.slicedt)
         total_tr = np.round((2*(np.sum(tr, time_dim))), 5)
 
     elif params.asltype == LOOK_LOCKER:
-        tr = params.t(end, 1) + (scan.readout/2) - (slice*scan.slicedt)
+        tr = params.t[-1] + (scan.readout/2) - (slice*scan.slicedt)
         total_tr = np.round(tr*2, 5)
     else:
         raise ValueError("Unrecognized ASL type: %s" % params.asltype)
