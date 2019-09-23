@@ -19,10 +19,7 @@ class OptPcaslArgumentParser(argparse.ArgumentParser):
         argparse.ArgumentParser.__init__(self, prog="oxasl_optpcasl", usage=USAGE, **kwargs)
 
         group = self.add_argument_group("Main Options")
-        group.add_argument("--asltype", help="ASL data type", required=True,
-                           choices=["var_multi_pCASL", "var_te_pCASL", "look_locker", "var_te_pCASL_nPLD"])
-        group.add_argument("-f", help="", type=float, default=50.0/6000)
-        group.add_argument("--opt-type", help="Optimization type - L-optimal or D-optimal", choices=["L", "D"], default="D")
+        group.add_argument("--optimize", help="Optimization target", choices=["CBF", "ATT", "both"], default="both")
         group.add_argument("--debug", help="Debug mode", action="store_true")
         
         group = self.add_argument_group("ATT distribution")
@@ -32,6 +29,8 @@ class OptPcaslArgumentParser(argparse.ArgumentParser):
         group.add_argument("--att-taper", help="Length of taper for ATT distribution (s)", type=float, default=0.3)
 
         group = self.add_argument_group("Scan to optimize for")
+        group.add_argument("--asltype", help="ASL data type", choices=["var_multi_pCASL", "look_locker"], default="var_multi_pCASL")
+        group.add_argument("-f", help="CBF value to optimize for", type=float, default=50.0/6000)
         group.add_argument("--scan-duration", help="Desired scan duration (s)", type=float, default=300)
         group.add_argument("--scan-npld", help="Number of PLDs", type=int, default=6)
         group.add_argument("--scan-readout", help="Scan readout time", type=float, default=0.5)
@@ -64,8 +63,10 @@ def main():
         
         # Type of optimisation
         # Note: the output best_min_variance is not comparable between D-optimal and L-optimal
-        if options.opt_type == "L":
+        if options.optimize == "CBF":
             opttype = opt.LOptimal([[1, 0],  [0, 0]])
+        elif options.optimize == "ATT":
+            opttype = opt.LOptimal([[0, 0],  [0, 1]])
         else:
             opttype = opt.DOptimal()
 
