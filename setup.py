@@ -87,7 +87,7 @@ kwargs = {
     'install_requires' : get_requirements(module_dir),
     'packages' : find_packages(),
     'package_data' : {
-        'oxasl_optpcasl.gui': ['banner.png', "oxasl.png"]
+        'oxasl_optpcasl.gui': ['banner.png', "oxasl.png", "icon.png"]
     },
     'entry_points' : {
         'console_scripts' : [
