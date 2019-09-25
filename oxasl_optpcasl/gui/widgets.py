@@ -23,8 +23,8 @@ class PlotOutputPanel(wx.Panel):
     Displays plots illustrating the optimized protocol
     """
     def __init__(self, parent):
+        self._opt_output = None
         self._params = None
-        self._cov_optimized = None
 
         wx.Panel.__init__(self, parent, size=wx.Size(300, 600))
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -72,44 +72,38 @@ class PlotOutputPanel(wx.Panel):
 
         self.Layout()
 
-    def set_optimized_scan(self, best_plds, scantime, params, att_dist, scan, optimizer):
+    def set_optimized_scan(self, params, opt_output):
+        self._opt_output = opt_output
+        self._params = params
+
         self._plds_text.Clear()
-        self._plds_text.AppendText(" ".join([str(pld) for pld in best_plds]))
+        self._plds_text.AppendText(" ".join([str(pld) for pld in opt_output.plds]))
 
         self._scantime_text.Clear()
-        self._scantime_text.AppendText(str(scantime))
+        self._scantime_text.AppendText(str(opt_output.scan_time))
 
-        params.pld = best_plds
-        params.bat = att_dist.exclude_taper
-
-        self._cov_optimized = np.zeros((scan.slices, len(params.bat), 2, 2))
-        for slice_idx in range(scan.slices):
-            params.t = params.tau + np.array(params.pld) + scan.slicedt*slice_idx
-            self._cov_optimized[slice_idx, ...], _ = optimizer.cov_oedn_ave_floor(params, scan, slice_idx)
-        
-        self._params = params
         self._update_plot()
 
     def _update_plot(self, _evt=None):
-        if self._params is None:
+        if self._opt_output is None:
             return
 
-        cbf_var = np.squeeze(np.mean(np.sqrt(np.abs(self._cov_optimized[..., 0, 0])), axis=0))
-        att_var = np.squeeze(np.mean(np.sqrt(np.abs(self._cov_optimized[..., 1, 1])), axis=0))
+        cbf_var = np.squeeze(np.mean(np.sqrt(np.abs(self._opt_output.cov_optimized[..., 0, 0])), axis=0))
+        att_var = np.squeeze(np.mean(np.sqrt(np.abs(self._opt_output.cov_optimized[..., 1, 1])), axis=0))
         self._plot_axes.clear()
         if self._plot_choice.GetSelection() == 0:
             self._plot_axes.set_title("Estimated CBF error")
             self._plot_axes.set_ylabel('SD (ml/100g/min)')
             self._plot_axes.set_xlabel("ATT (s)")
             self._plot_axes.set_ylim(0, 10)
-            self._plot_axes.plot(self._params.bat, cbf_var, label="Optimized protocol")
+            self._plot_axes.plot(self._opt_output.att, cbf_var, label="Optimized protocol")
             self._plot_axes.legend()
         elif self._plot_choice.GetSelection() == 1:
             self._plot_axes.set_title("Estimated ATT error")
             self._plot_axes.set_ylabel("SD (s)")
             self._plot_axes.set_xlabel("ATT (s)")
             self._plot_axes.set_ylim(0, 0.25)
-            self._plot_axes.plot(self._params.bat, att_var, label="Optimized protocol")
+            self._plot_axes.plot(self._opt_output.att, att_var, label="Optimized protocol")
             self._plot_axes.legend()
         else:
             self._plot_axes.set_title("ASL kinetic curve")
@@ -119,7 +113,7 @@ class PlotOutputPanel(wx.Panel):
             for att in atts:
                 xdata, ydata = self._kinetic_model(att, self._params.tau)
                 self._plot_axes.plot(xdata, ydata, label="ATT=%.2fs" % att)
-            for pld in self._params.pld:
+            for pld in self._opt_output.plds:
                 self._plot_axes.axvline(pld+self._params.tau, linestyle='--', color='green')
             self._plot_axes.legend()
 

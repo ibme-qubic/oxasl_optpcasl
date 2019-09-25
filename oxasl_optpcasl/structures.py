@@ -10,12 +10,32 @@ VAR_TE_PCASL = 'var_te_pCASL'
 LOOK_LOCKER = 'look_locker'
 VAR_TE_PCASL_NPLD = 'var_te_pCASL_nPLD'
 
+class ASLScan(object):
+    """
+    Details of the desired scan to optimize for
+    """
+    def __init__(self, asltype, duration, npld, slices=1, slicedt=0.0, readout=0.5):
+        self.asltype = asltype
+        self.duration = duration
+        self.npld = npld
+        self.slices = slices
+        self.slicedt = slicedt
+        self.readout = readout
+
+    def __str__(self):
+        if self.slices > 1:
+            return "%is 2D scan with %i slices (time per slice=%.5fs) and readout time %.2fs" % (self.duration, self.slices, self.slicedt, self.readout)
+        else:
+            return "%is 3D scan with readout time %fs" % (self.duration, self.readout)
+
 class ASLParams(object):
     """
-    Define the ASL parameters (as per Buxton et al. MRM 1998)
+    Define the physiological parameters to use
+    
+    (as per Buxton et al. MRM 1998)
     """
-    def __init__(self, asltype, f, **kwargs):
-        self.asltype, self.f = asltype, f
+    def __init__(self, **kwargs):
+        self.f = kwargs.get("f", 50.0/6000)
         self.bat = kwargs.get("bat", 1.0)
         self.m0b = kwargs.get("m0b", 1.0)
         self.t1b = kwargs.get("t1b", 1.65)
@@ -25,7 +45,7 @@ class ASLParams(object):
         self.tau = kwargs.get("tau", 1.4)
         self.noise = kwargs.get("noise", 0.002)
 
-class BATDist(object):
+class ATTDist(object):
     """
     ATT (BAT) distribution
 
@@ -47,19 +67,6 @@ class BATDist(object):
 
     def __str__(self):
         return "BAT distribution: %i values between %.2fs and %fs (weight taper=%.2fs)" % (self.length, self.start, self.end, self.taper)
-
-class Scan(object):
-    """
-    Details of the desired scan to optimize for
-    """
-    def __init__(self, duration, npld, slices=1, slicedt=0.0, readout=0.5):
-        self.duration, self.npld, self.slices, self.slicedt, self.readout = duration, npld, slices, slicedt, readout
-
-    def __str__(self):
-        if self.slices > 1:
-            return "%is 2D scan with %i slices (time per slice=%.5fs) and readout time %.2fs" % (self.duration, self.slices, self.slicedt, self.readout)
-        else:
-            return "%is 3D scan with readout time %fs" % (self.duration, self.readout)
 
 class Limits(object):
     """

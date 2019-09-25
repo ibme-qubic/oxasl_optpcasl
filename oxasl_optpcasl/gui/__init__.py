@@ -16,7 +16,6 @@ import wx
 
 from .widgets import PlotOutputPanel
 from .options import ScanOptions, OptimizerOptions
-from .. import optimize, TRWeightingOrNAveFloor
 
 class OptPCASLGui(wx.Frame):
     """
@@ -95,16 +94,13 @@ class OptPCASLGui(wx.Frame):
             wx.Yield()
             params = self._scan_options.aslparams()
             scan = self._scan_options.scan()
-
             att_dist = self._opt_options.attdist()
             lims = self._opt_options.pldlimits()
-            optimizer = self._opt_options.optimizer()
+            optimizer = self._opt_options.optimizer(params, scan, att_dist, lims)
             
-            # Run the optimisation
-            best_plds, num_av, best_min_variance = optimize(optimizer, params, att_dist, scan, lims)
-            num_av, total_tr = TRWeightingOrNAveFloor(params, scan, 0, 0)
-            scantime = num_av * total_tr
-            self._plot.set_optimized_scan(best_plds, scantime, params, att_dist, scan, optimizer)
+            # Run the optimisation and display outcome
+            output = optimizer.optimize()
+            self._plot.set_optimized_scan(params, output)
             
         except (RuntimeError, ValueError) as exc:
             sys.stderr.write("ERROR: %s\n" % str(exc))

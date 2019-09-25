@@ -10,7 +10,7 @@ import os
 import wx
 import wx.grid
 
-from ..structures import VAR_MULTI_PCASL, VAR_TE_PCASL, LOOK_LOCKER, VAR_TE_PCASL_NPLD, ASLParams, Scan, BATDist, Limits
+from ..structures import VAR_MULTI_PCASL, VAR_TE_PCASL, LOOK_LOCKER, VAR_TE_PCASL_NPLD, ASLParams, ASLScan, ATTDist, Limits
 from ..optimize import LOptimal, DOptimal
 from .widgets import TabPage, NumberChooser
 
@@ -64,15 +64,15 @@ class ScanOptions(TabPage):
             return 1
 
     def aslparams(self):
-        return ASLParams(self.SCAN_TYPES[self._asltype.GetString(self._asltype.GetSelection())], 
-                         self._fvalue.GetValue()/6000.0)
+        return ASLParams(f=self._fvalue.GetValue()/6000.0)
 
     def scan(self):
-        return Scan(duration=self._duration.GetValue(), 
-                    npld=self._nplds.GetValue(), 
-                    readout=self._readout_time.GetValue(),
-                    slices=self.nslices(),
-                    slicedt=self.slicedt())
+        return ASLScan(self.SCAN_TYPES[self._asltype.GetString(self._asltype.GetSelection())],
+                       duration=self._duration.GetValue(), 
+                       npld=self._nplds.GetValue(), 
+                       readout=self._readout_time.GetValue(),
+                       slices=self.nslices(),
+                       slicedt=self.slicedt())
 
 class OptimizerOptions(TabPage):
     """
@@ -100,16 +100,16 @@ class OptimizerOptions(TabPage):
         self.SetSizer(self.sizer)
 
     def attdist(self):
-        return BATDist(self._att_start.GetValue(), self._att_end.GetValue(), 
+        return ATTDist(self._att_start.GetValue(), self._att_end.GetValue(), 
                        self._att_step.GetValue(), self._att_taper.GetValue())
 
     def pldlimits(self):
         return Limits(self._pld_min.GetValue(), self._pld_max.GetValue(), self._pld_step.GetValue())
 
-    def optimizer(self):
+    def optimizer(self, *args, **kwargs):
         if self._opttype.GetSelection() == 1:
-            return LOptimal([[1, 0],  [0, 0]])
+            return LOptimal([[1, 0],  [0, 0]], *args, **kwargs)
         if self._opttype.GetSelection() == 2:
-            return LOptimal([[0, 0],  [0, 1]])
+            return LOptimal([[0, 0],  [0, 1]], *args, **kwargs)
         else:
-            return DOptimal()
+            return DOptimal(*args, **kwargs)

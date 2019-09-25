@@ -30,10 +30,10 @@ class OptPcaslArgumentParser(argparse.ArgumentParser):
 
         group = self.add_argument_group("Scan to optimize for")
         group.add_argument("--asltype", help="ASL data type", choices=["var_multi_pCASL", "look_locker"], default="var_multi_pCASL")
-        group.add_argument("-f", help="CBF value to optimize for", type=float, default=50.0/6000)
         group.add_argument("--scan-duration", help="Desired scan duration (s)", type=float, default=300)
         group.add_argument("--scan-npld", help="Number of PLDs", type=int, default=6)
         group.add_argument("--scan-readout", help="Scan readout time", type=float, default=0.5)
+        group.add_argument("-f", help="CBF value to optimize for", type=float, default=50.0/6000)
         
         group = self.add_argument_group("PLD limits")
         group.add_argument("--pld-min", help="Minimum PLD (s)", type=float, default=0.1)
@@ -50,13 +50,13 @@ def main():
         print("=" * len(welcome))
         
         # Define the ASL parameters
-        params = opt.ASLParams(options.asltype, options.f)
+        params = opt.ASLParams(**vars(options))
         
         # ATT (BAT) distribution
-        att_dist = opt.BATDist(options.att_start, options.att_end, options.att_step, options.att_taper)
+        att_dist = opt.ATTDist(options.att_start, options.att_end, options.att_step, options.att_taper)
 
         # Details of the desired scan to optimize for
-        scan = opt.Scan(duration=options.scan_duration, npld=options.scan_npld, readout=options.scan_readout)
+        scan = opt.ASLScan(options.asltype, duration=options.scan_duration, npld=options.scan_npld, readout=options.scan_readout)
         
         # PLD limits and step size to search over
         lims = opt.Limits(options.pld_min, options.pld_max, options.pld_step)
@@ -64,15 +64,17 @@ def main():
         # Type of optimisation
         # Note: the output best_min_variance is not comparable between D-optimal and L-optimal
         if options.optimize == "CBF":
-            opttype = opt.LOptimal([[1, 0],  [0, 0]])
+            optimizer = opt.LOptimal([[1, 0],  [0, 0]], params, scan, att_dist, lims)
         elif options.optimize == "ATT":
-            opttype = opt.LOptimal([[0, 0],  [0, 1]])
+            optimizer = opt.LOptimal([[0, 0],  [0, 1]], params, scan, att_dist, lims)
         else:
-            opttype = opt.DOptimal()
+            optimizer = opt.DOptimal(params, scan, att_dist, lims)
 
         # Run the optimisation
-        best_plds, num_av, best_min_variance = opt.optimize(opttype, params, att_dist, scan, lims)
-
+        output = optimizer.optimize()
+        print("Optimal PLDs: %s" % output.plds)
+        print("Number of repeats: %i" % output.num_av)
+        print("Scan time: %.1fs" % output.scan_time)
         print("DONE")
     except (RuntimeError, ValueError) as exc:
         sys.stderr.write("ERROR: %s\n" % str(exc))
