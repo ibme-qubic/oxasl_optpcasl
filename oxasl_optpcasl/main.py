@@ -33,6 +33,7 @@ class OptPcaslArgumentParser(argparse.ArgumentParser):
         group.add_argument("--scan-duration", help="Desired scan duration (s)", type=float, default=300)
         group.add_argument("--scan-npld", help="Number of PLDs", type=int, default=6)
         group.add_argument("--scan-readout", help="Scan readout time", type=float, default=0.5)
+        group.add_argument("--scan-tau", "--scan-bolusdur", help="Bolus duration (s)", type=float, default=1.4)
         group.add_argument("-f", help="CBF value to optimize for", type=float, default=50.0/6000)
         
         group = self.add_argument_group("PLD limits")
@@ -56,7 +57,7 @@ def main():
         att_dist = opt.ATTDist(options.att_start, options.att_end, options.att_step, options.att_taper)
 
         # Details of the desired scan to optimize for
-        scan = opt.ASLScan(options.asltype, duration=options.scan_duration, npld=options.scan_npld, readout=options.scan_readout)
+        scan = opt.ASLScan(options.asltype, duration=options.scan_duration, npld=options.scan_npld, readout=options.scan_readout, tau=options.scan_tau)
         
         # PLD limits and step size to search over
         lims = opt.Limits(options.pld_min, options.pld_max, options.pld_step)

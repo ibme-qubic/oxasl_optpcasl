@@ -72,9 +72,10 @@ class PlotOutputPanel(wx.Panel):
 
         self.Layout()
 
-    def set_optimized_scan(self, params, opt_output):
+    def set_optimized_scan(self, params, scan, opt_output):
         self._opt_output = opt_output
         self._params = params
+        self._scan = scan
 
         self._plds_text.Clear()
         self._plds_text.AppendText(" ".join([str(pld) for pld in opt_output.plds]))
@@ -111,17 +112,17 @@ class PlotOutputPanel(wx.Panel):
             self._plot_axes.set_xlabel("Time (s)")
             atts = np.linspace(1.0, 1.6, 3)
             for att in atts:
-                xdata, ydata = self._kinetic_model(att, self._params.tau)
+                xdata, ydata = self._kinetic_model(att, self._scan.tau, pldmax=max(self._opt_output.plds))
                 self._plot_axes.plot(xdata, ydata, label="ATT=%.2fs" % att)
             for pld in self._opt_output.plds:
-                self._plot_axes.axvline(pld+self._params.tau, linestyle='--', color='green')
+                self._plot_axes.axvline(pld+self._scan.tau, linestyle='--', color='green')
             self._plot_axes.legend()
 
         self._canvas.draw()
         self._canvas.Refresh()
 
-    def _kinetic_model(self, att, tau, f=50.0, lam=0.9, m0=1.0, alpha=0.85, t1b=1.65, t1t=1.445):
-        t_all = np.linspace(0, 5, 50)
+    def _kinetic_model(self, att, tau, f=50.0, lam=0.9, m0=1.0, alpha=0.85, t1b=1.65, t1t=1.445, pldmax=5.0):
+        t_all = np.linspace(0, tau+pldmax+1, 50)
         M = np.zeros(len(t_all))
         f = f / 6000 # Fix units
         t1prime = 1/(1.0/t1t + f/lam)

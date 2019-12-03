@@ -100,7 +100,7 @@ class OptPCASLGui(wx.Frame):
             
             # Run the optimisation and display outcome
             output = optimizer.optimize()
-            self._plot.set_optimized_scan(params, output)
+            self._plot.set_optimized_scan(params, scan, output)
             
         except (RuntimeError, ValueError) as exc:
             sys.stderr.write("ERROR: %s\n" % str(exc))

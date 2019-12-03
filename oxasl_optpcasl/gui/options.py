@@ -34,6 +34,7 @@ class ScanOptions(TabPage):
         self._fvalue = self.number("Estimated perfusion (ml/100g/min)", minval=0, maxval=100.0, initial=50.0)
         self._duration = self.number("Approximate scan duration (s)", minval=0, maxval=1000, initial=300)
         self._readout_time = self.number("Readout time (s)", minval=0, maxval=2.0, initial=0.5)
+        self._tau = self.number("Bolus duration (s)", minval=0, maxval=5, initial=1.4)
         self._nplds = self.integer("Number of PLDs", minval=1, maxval=20, initial=6)
 
         self.readout_ch = self.choice("Readout", choices=["3D (eg GRASE)", "2D multi-slice (eg EPI)"])
@@ -68,7 +69,8 @@ class ScanOptions(TabPage):
 
     def scan(self):
         return ASLScan(self.SCAN_TYPES[self._asltype.GetString(self._asltype.GetSelection())],
-                       duration=self._duration.GetValue(), 
+                       duration=self._duration.GetValue(),
+                       tau=self._tau.GetValue(),
                        npld=self._nplds.GetValue(), 
                        readout=self._readout_time.GetValue(),
                        slices=self.nslices(),

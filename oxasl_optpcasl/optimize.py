@@ -69,7 +69,7 @@ class Optimizer(object):
             output.plds = np.round(output.plds*factor) / factor
 
             # Sequence of TIs corresponding to the PLDs. FIXME tau could be sequence?
-            tr_weight, _ = self.TRWeightingOrNAveFloor(self.params.tau + output.plds, 0)
+            tr_weight, _ = self.TRWeightingOrNAveFloor(self.scan.tau + output.plds, 0)
             if tr_weight < 1:
                 pld_subtract += 0.1
 
@@ -129,7 +129,7 @@ class Optimizer(object):
                         trial_plds[other_ind, :] = np.tile(output.plds[other_ind, np.newaxis], (1, len(trial_values))) + (slice*self.scan.slicedt)
                         trial_plds[pld_idx, :] = trial_values + (slice*self.scan.slicedt)
 
-                        variance[:, dist_ind[:, slice], slice] = self.hessian_var(self.params.tau + trial_plds, att, slice)
+                        variance[:, dist_ind[:, slice], slice] = self.hessian_var(self.scan.tau + trial_plds, att, slice)
 
                     # Take mean of generalised variance across slices
                     variance_mean = np.zeros((len(trial_values), self.att_dist.length))
@@ -173,10 +173,10 @@ class Optimizer(object):
 
         if (output.best_min_variance - min_variance) / output.best_min_variance > 1e-12:
             output.plds = np.array(sorted(output.plds))
-            output.times = self.params.tau + output.plds
+            output.times = self.scan.tau + output.plds
             output.best_min_variance = min_variance
             output.num_av, output.total_tr = self.TRWeightingOrNAveFloor(output.times, 0)
-            output.scan_time = output.total_tr * output.num_av
+            output.scan_time = output.total_tr * output.num_av[0]
             output.att = self.att_dist.exclude_taper
             output.cov_optimized = np.zeros((self.scan.slices, len(output.att), 2, 2))
             for slice_idx in range(self.scan.slices):
@@ -242,16 +242,16 @@ class Optimizer(object):
         datt = np.zeros(times.shape, dtype=np.float32)
 
         # for t between deltaT and tau plus deltaT
-        t_during = np.logical_and(times > att, times <= (self.params.tau + att))
+        t_during = np.logical_and(times > att, times <= (self.scan.tau + att))
         df_during = M * (1 - np.exp((att - times) / t1_prime))
         datt_during = M * self.params.f * ((-1.0/self.params.t1b) - np.exp((att - times) / t1_prime) * ((1.0/t1_prime) - (1.0/self.params.t1b)))
         df[t_during] = df_during[t_during]
         datt[t_during] = datt_during[t_during]
 
         # for t greater than tau plus deltaT
-        t_after = times > (self.params.tau + att)
-        df_after = M * np.exp((self.params.tau + att - times) / t1_prime) * (1 - np.exp(-self.params.tau/t1_prime))
-        datt_after = M * self.params.f * (1 - np.exp(-self.params.tau/t1_prime)) * np.exp((self.params.tau + att - times)/t1_prime) * (1.0/t1_prime - 1.0/self.params.t1b)
+        t_after = times > (self.scan.tau + att)
+        df_after = M * np.exp((self.scan.tau + att - times) / t1_prime) * (1 - np.exp(-self.scan.tau/t1_prime))
+        datt_after = M * self.params.f * (1 - np.exp(-self.scan.tau/t1_prime)) * np.exp((self.scan.tau + att - times)/t1_prime) * (1.0/t1_prime - 1.0/self.params.t1b)
         df[t_after] = df_after[t_after]
         datt[t_after] = datt_after[t_after]
 

@@ -14,19 +14,20 @@ class ASLScan(object):
     """
     Details of the desired scan to optimize for
     """
-    def __init__(self, asltype, duration, npld, slices=1, slicedt=0.0, readout=0.5):
+    def __init__(self, asltype, duration, npld, slices=1, slicedt=0.0, readout=0.5, tau=1.4):
         self.asltype = asltype
         self.duration = duration
         self.npld = npld
         self.slices = slices
         self.slicedt = slicedt
         self.readout = readout
+        self.tau = tau
 
     def __str__(self):
         if self.slices > 1:
-            return "%is 2D scan with %i slices (time per slice=%.5fs) and readout time %.2fs" % (self.duration, self.slices, self.slicedt, self.readout)
+            return "%is 2D scan with %.2fs bolus duration, %i slices (time per slice=%.5fs) and readout time %.2fs" % (self.duration, self.tau, self.slices, self.slicedt, self.readout)
         else:
-            return "%is 3D scan with readout time %fs" % (self.duration, self.readout)
+            return "%is 3D scan with  %.2fs bolus duration and readout time %fs" % (self.duration, self.tau, self.readout)
 
 class ASLParams(object):
     """
@@ -42,7 +43,6 @@ class ASLParams(object):
         self.t1t = kwargs.get("t1t", 1.445)
         self.lam = kwargs.get("lam", 0.9)
         self.alpha = kwargs.get("alpha", 0.85)
-        self.tau = kwargs.get("tau", 1.4)
         self.noise = kwargs.get("noise", 0.002)
 
 class ATTDist(object):
