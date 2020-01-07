@@ -128,7 +128,7 @@ class PlotOutputPanel(wx.Panel):
         t1prime = 1/(1.0/t1t + f/lam)
 
         # During bolus
-        relevant_ts = np.logical_and(t_all>att, t_all<tau+att)
+        relevant_ts = np.logical_and(t_all>att, t_all<=tau+att)
         t = t_all[relevant_ts]
         M[relevant_ts] = np.exp(-att/t1b) * (1-np.exp(-(t-att)/t1prime))
 
