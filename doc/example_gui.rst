@@ -3,6 +3,39 @@ Example use of the GUI
 
 The ``OXASL_OPTPCASL`` GUI is started using the command ``oxasl_optpcasl_gui``
 
+GUI requirements
+~~~~~~~~~~~~~~~~
+
+The wxpython GUI library is required for the GUI. This is not included as a requirements of ``oxasl_optpcasl``
+since it is possible to use the optimizer solely through the command line. So, if you want to use the
+GUI you will need to install ``wxpython``, for example using::
+
+    pip install wxpython
+    conda install wxpython
+    
+.. info::
+    ``fslpython``, the Conda environment included in FSL, has ``wxpython`` already installed.
+    
+GUI errors on Mac
+~~~~~~~~~~~~~~~~~
+A common issue on Mac when a Conda environment is being used is that the GUI will fail to start
+with a message about requiring a 'Framework Build'.
+
+This is a well known issue with Conda which to date has not been fixed. To work around the problem
+you need to modify the wrapper script, for example using::
+
+    nano `which oxasl_optpcasl_gui`
+
+If you are using FSL and installed `oxasl_optpcasl` into `fslpython` then change the first line to:
+
+    #!/usr/bin/env fslpythonw
+    
+Otherwise, change the first line to::
+
+    #!/usr/bin/env pythonw
+    
+This should enable to the script to run.
+
 Setting the scan parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
