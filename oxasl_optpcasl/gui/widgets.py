@@ -112,30 +112,30 @@ class PlotOutputPanel(wx.Panel):
             self._plot_axes.set_xlabel("Time (s)")
             atts = np.linspace(1.0, 1.6, 3)
             for att in atts:
-                xdata, ydata = self._kinetic_model(att, self._scan.tau, pldmax=max(self._opt_output.plds))
+                xdata, ydata = self._kinetic_model(att, self._scan.ld, pldmax=max(self._opt_output.plds))
                 self._plot_axes.plot(xdata, ydata, label="ATT=%.2fs" % att)
             for pld in self._opt_output.plds:
-                self._plot_axes.axvline(pld+self._scan.tau, linestyle='--', color='green')
+                self._plot_axes.axvline(pld+self._scan.ld, linestyle='--', color='green')
             self._plot_axes.legend()
 
         self._canvas.draw()
         self._canvas.Refresh()
 
-    def _kinetic_model(self, att, tau, f=50.0, lam=0.9, m0=1.0, alpha=0.85, t1b=1.65, t1t=1.445, pldmax=5.0):
-        t_all = np.linspace(0, tau+pldmax+1, 50)
+    def _kinetic_model(self, att, ld, f=50.0, lam=0.9, m0=1.0, alpha=0.85, t1b=1.65, t1t=1.445, pldmax=5.0):
+        t_all = np.linspace(0, ld+pldmax+1, 50)
         M = np.zeros(len(t_all))
         f = f / 6000 # Fix units
         t1prime = 1/(1.0/t1t + f/lam)
 
         # During bolus
-        relevant_ts = np.logical_and(t_all>att, t_all<=tau+att)
+        relevant_ts = np.logical_and(t_all>att, t_all<=ld+att)
         t = t_all[relevant_ts]
         M[relevant_ts] = np.exp(-att/t1b) * (1-np.exp(-(t-att)/t1prime))
 
         # After bolus
-        relevant_ts = t_all > att+tau
+        relevant_ts = t_all > att+ld
         t = t_all[relevant_ts]
-        M[relevant_ts] = np.exp(-att/t1b) * np.exp(-(t-tau-att)/t1prime) * (1-np.exp(-tau/t1prime))
+        M[relevant_ts] = np.exp(-att/t1b) * np.exp(-(t-ld-att)/t1prime) * (1-np.exp(-ld/t1prime))
 
         M *= 2 * m0 * f * t1prime * alpha
         return t_all, M

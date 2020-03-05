@@ -68,8 +68,8 @@ class Optimizer(object):
             output.plds = np.linspace(self.lims.lb, self.lims.ub - pld_subtract, self.scan.npld)
             output.plds = np.round(output.plds*factor) / factor
 
-            # Sequence of TIs corresponding to the PLDs. FIXME tau could be sequence?
-            tr_weight, _ = self.TRWeightingOrNAveFloor(self.scan.tau + output.plds, 0)
+            # Sequence of TIs corresponding to the PLDs. FIXME ld could be sequence?
+            tr_weight, _ = self.TRWeightingOrNAveFloor(self.scan.ld + output.plds, 0)
             if tr_weight < 1:
                 pld_subtract += 0.1
 
@@ -129,7 +129,7 @@ class Optimizer(object):
                         trial_plds[other_ind, :] = np.tile(output.plds[other_ind, np.newaxis], (1, len(trial_values))) + (slice*self.scan.slicedt)
                         trial_plds[pld_idx, :] = trial_values + (slice*self.scan.slicedt)
 
-                        variance[:, dist_ind[:, slice], slice] = self.hessian_var(self.scan.tau + trial_plds, att, slice)
+                        variance[:, dist_ind[:, slice], slice] = self.hessian_var(self.scan.ld + trial_plds, att, slice)
 
                     # Take mean of generalised variance across slices
                     variance_mean = np.zeros((len(trial_values), self.att_dist.length))
@@ -173,7 +173,7 @@ class Optimizer(object):
 
         if (output.best_min_variance - min_variance) / output.best_min_variance > 1e-12:
             output.plds = np.array(sorted(output.plds))
-            output.times = self.scan.tau + output.plds
+            output.times = self.scan.ld + output.plds
             output.best_min_variance = min_variance
             output.num_av, output.total_tr = self.TRWeightingOrNAveFloor(output.times, 0)
             output.scan_time = output.total_tr * output.num_av[0]
@@ -221,15 +221,17 @@ class Optimizer(object):
 
     def sensitivity(self, times, att):
         """
-        This function calculates the sensitivty functions of the Buxtion CASL
+        This function calculates the sensitivty functions of the Buxton CASL
         model (Buxton et al. MRM 1998) and are given in Woods et al. MRM 2019.
-        The att sensitivty function assumes a fixed outflow in t1_prime in order
-        to simplify the equations.
-        """
-        # This sensitivty function includes an assumed fixed t1_prime, so we fix the
-        # f in t1_prime to a sensible value.
-        f_fixed = 50.0/6000
 
+        FIXME this bit will need expanding to handle time encoded (Hadamard) data
+        """
+
+        # Assume a fixed flow value in t1_prime in order
+        # to simplify the equations. It is shown in Chappell et al (FIXME ref) that
+        # this causes negligible error in the kinetic model and avoids a circular 
+        # dependency of the model on its own output.
+        f_fixed = 50.0/6000
         t1_prime = 1.0/((1.0/self.params.t1t) + (f_fixed/self.params.lam))
         M = 2*self.params.m0b * self.params.alpha * t1_prime * np.exp(-att / self.params.t1b)
 
@@ -241,17 +243,17 @@ class Optimizer(object):
         df = np.zeros(times.shape, dtype=np.float32)
         datt = np.zeros(times.shape, dtype=np.float32)
 
-        # for t between deltaT and tau plus deltaT
-        t_during = np.logical_and(times > att, times <= (self.scan.tau + att))
+        # for t between deltaT and ld plus deltaT
+        t_during = np.logical_and(times > att, times <= (self.scan.ld + att))
         df_during = M * (1 - np.exp((att - times) / t1_prime))
         datt_during = M * self.params.f * ((-1.0/self.params.t1b) - np.exp((att - times) / t1_prime) * ((1.0/t1_prime) - (1.0/self.params.t1b)))
         df[t_during] = df_during[t_during]
         datt[t_during] = datt_during[t_during]
 
-        # for t greater than tau plus deltaT
-        t_after = times > (self.scan.tau + att)
-        df_after = M * np.exp((self.scan.tau + att - times) / t1_prime) * (1 - np.exp(-self.scan.tau/t1_prime))
-        datt_after = M * self.params.f * (1 - np.exp(-self.scan.tau/t1_prime)) * np.exp((self.scan.tau + att - times)/t1_prime) * (1.0/t1_prime - 1.0/self.params.t1b)
+        # for t greater than ld plus deltaT
+        t_after = times > (self.scan.ld + att)
+        df_after = M * np.exp((self.scan.ld + att - times) / t1_prime) * (1 - np.exp(-self.scan.ld/t1_prime))
+        datt_after = M * self.params.f * (1 - np.exp(-self.scan.ld/t1_prime)) * np.exp((self.scan.ld + att - times)/t1_prime) * (1.0/t1_prime - 1.0/self.params.t1b)
         df[t_after] = df_after[t_after]
         datt[t_after] = datt_after[t_after]
 
@@ -268,7 +270,7 @@ class Optimizer(object):
         """
         # Work out how many averages we can fit in and divide by the noise SD
         tr_weight, _ = self.TRWeightingOrNAveFloor(times, slice)
-        tr_weight = tr_weight/(self.params.noise**2)
+        tr_weight = tr_weight/(self.scan.noise**2)
 
         # Calculate derivatives of ASL kinetic model
         df, datt = self.sensitivity(times, att)

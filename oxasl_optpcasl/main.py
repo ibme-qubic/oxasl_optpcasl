@@ -32,14 +32,21 @@ class OptPcaslArgumentParser(argparse.ArgumentParser):
         group.add_argument("--asltype", help="ASL data type", choices=["var_multi_pCASL", "look_locker"], default="var_multi_pCASL")
         group.add_argument("--scan-duration", help="Desired scan duration (s)", type=float, default=300)
         group.add_argument("--scan-npld", help="Number of PLDs", type=int, default=6)
-        group.add_argument("--scan-readout", help="Scan readout time", type=float, default=0.5)
-        group.add_argument("--scan-tau", "--scan-bolusdur", help="Bolus duration (s)", type=float, default=1.4)
+        group.add_argument("--scan-readout", help="Scan readout (non-ASL) time (s)", type=float, default=0.5)
+        group.add_argument("--scan-ld", "--scan-tau", "--scan-bolusdur", help="Labelling duration (s)", type=float, default=1.4)
+        group.add_argument("--scan-noise", help="Additive noise std.dev. relative to M0", type=float, default=0.002)
         group.add_argument("-f", help="CBF value to optimize for", type=float, default=50.0/6000)
         
         group = self.add_argument_group("PLD limits")
         group.add_argument("--pld-min", help="Minimum PLD (s)", type=float, default=0.1)
         group.add_argument("--pld-max", help="Maximum PLD (s)", type=float, default=3.0)
         group.add_argument("--pld-step", help="Step to search for optimal PLDs (s)", type=float, default=0.025)        
+
+        group = self.add_argument_group("Labelling duration limits")
+        group.add_argument("--optimize-ld", help="Optimize over varying labelling durations", action="store_true", default=False)
+        group.add_argument("--ld-min", help="Minimum LD (s)", type=float, default=0.1)
+        group.add_argument("--ld-max", help="Maximum LD (s)", type=float, default=1.8)
+        group.add_argument("--ld-step", help="Step to search for optimal LD (s)", type=float, default=0.025)        
 
 def main():
     try:
@@ -57,19 +64,26 @@ def main():
         att_dist = opt.ATTDist(options.att_start, options.att_end, options.att_step, options.att_taper)
 
         # Details of the desired scan to optimize for
-        scan = opt.ASLScan(options.asltype, duration=options.scan_duration, npld=options.scan_npld, readout=options.scan_readout, tau=options.scan_tau)
+        scan = opt.ASLScan(options.asltype, duration=options.scan_duration, npld=options.scan_npld, 
+                           readout=options.scan_readout, ld=options.scan_ld, noise=options.scan_noise)
         
         # PLD limits and step size to search over
-        lims = opt.Limits(options.pld_min, options.pld_max, options.pld_step)
+        pld_lims = opt.Limits(options.pld_min, options.pld_max, options.pld_step, name="PLD")
         
+        # LD limits and step size to search over
+        if options.optimize_ld:
+            ld_lims = opt.Limits(options.ld_min, options.ld_max, options.ld_step, name="LD")
+        else:
+            ld_lims = None
+
         # Type of optimisation
         # Note: the output best_min_variance is not comparable between D-optimal and L-optimal
         if options.optimize == "CBF":
-            optimizer = opt.LOptimal([[1, 0],  [0, 0]], params, scan, att_dist, lims)
+            optimizer = opt.LOptimal([[1, 0],  [0, 0]], params, scan, att_dist, pld_lims)
         elif options.optimize == "ATT":
-            optimizer = opt.LOptimal([[0, 0],  [0, 1]], params, scan, att_dist, lims)
+            optimizer = opt.LOptimal([[0, 0],  [0, 1]], params, scan, att_dist, pld_lims)
         else:
-            optimizer = opt.DOptimal(params, scan, att_dist, lims)
+            optimizer = opt.DOptimal(params, scan, att_dist, pld_lims)
 
         # Run the optimisation
         output = optimizer.optimize()

@@ -14,20 +14,21 @@ class ASLScan(object):
     """
     Details of the desired scan to optimize for
     """
-    def __init__(self, asltype, duration, npld, slices=1, slicedt=0.0, readout=0.5, tau=1.4):
+    def __init__(self, asltype, duration, npld, slices=1, slicedt=0.0, readout=0.5, ld=1.4, noise=0.002):
         self.asltype = asltype
         self.duration = duration
         self.npld = npld
         self.slices = slices
         self.slicedt = slicedt
         self.readout = readout
-        self.tau = tau
+        self.ld = ld
+        self.noise = noise
 
     def __str__(self):
         if self.slices > 1:
-            return "%is 2D scan with %.2fs bolus duration, %i slices (time per slice=%.5fs) and readout time %.2fs" % (self.duration, self.tau, self.slices, self.slicedt, self.readout)
+            return "%is 2D scan with %.2fs label duration, %i slices (time per slice=%.5fs) and readout time %.2fs" % (self.duration, self.ld, self.slices, self.slicedt, self.readout)
         else:
-            return "%is 3D scan with  %.2fs bolus duration and readout time %fs" % (self.duration, self.tau, self.readout)
+            return "%is 3D scan with  %.2fs label duration and readout time %fs" % (self.duration, self.ld, self.readout)
 
 class ASLParams(object):
     """
@@ -36,14 +37,12 @@ class ASLParams(object):
     (as per Buxton et al. MRM 1998)
     """
     def __init__(self, **kwargs):
-        self.f = kwargs.get("f", 50.0/6000)
-        self.bat = kwargs.get("bat", 1.0)
-        self.m0b = kwargs.get("m0b", 1.0)
         self.t1b = kwargs.get("t1b", 1.65)
         self.t1t = kwargs.get("t1t", 1.445)
-        self.lam = kwargs.get("lam", 0.9)
         self.alpha = kwargs.get("alpha", 0.85)
-        self.noise = kwargs.get("noise", 0.002)
+        self.lam = kwargs.get("lam", 0.9)
+        self.f = kwargs.get("f", 50.0/6000)
+        self.m0b = kwargs.get("m0b", 1.0)
 
 class ATTDist(object):
     """
@@ -66,14 +65,14 @@ class ATTDist(object):
         self.length = len(self.dist)
 
     def __str__(self):
-        return "BAT distribution: %i values between %.2fs and %fs (weight taper=%.2fs)" % (self.length, self.start, self.end, self.taper)
+        return "ATT distribution: %i values between %.2fs and %fs (weight taper=%.2fs)" % (self.length, self.start, self.end, self.taper)
 
 class Limits(object):
     """
-    PLD limits and step size to search over
+    Limits and step size to search over for PLDs / labelling durations
     """
-    def __init__(self, lb, ub, step):
-        self.lb, self.ub, self.step = lb, ub, step
+    def __init__(self, lb, ub, step, name="PLD"):
+        self.lb, self.ub, self.step, self.name = lb, ub, step, name
 
     def __str__(self):
-        return "PLDs between %.2fs and %.2fs in steps of %.5fs" % (self.lb, self.ub, self.step)
+        return "%ss between %.2fs and %.2fs in steps of %.5fs" % (self.name, self.lb, self.ub, self.step)
