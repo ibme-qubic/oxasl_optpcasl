@@ -11,5 +11,3 @@ __maintainer__ = "Martin Craig"
 __email__ = "martin.craig@eng.ox.ac.uk"
 
 from ._version import __version__
-from .optimize import LOptimal, DOptimal
-from .structures import ASLParams, ATTDist, ASLScan, Limits, VAR_MULTI_PCASL, VAR_TE_PCASL, LOOK_LOCKER, VAR_TE_PCASL_NPLD

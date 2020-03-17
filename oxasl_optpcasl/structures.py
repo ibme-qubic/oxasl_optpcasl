@@ -5,32 +5,27 @@ Copyright 2019 University of Oxford
 """
 import numpy as np
 
-VAR_MULTI_PCASL = 'var_multi_pCASL'
-VAR_TE_PCASL = 'var_te_pCASL'
-LOOK_LOCKER = 'look_locker'
-VAR_TE_PCASL_NPLD = 'var_te_pCASL_nPLD'
-
-class ASLScan(object):
+class ScanParams(object):
     """
-    Details of the desired scan to optimize for
+    Parameters of the scan to optimize for
     """
-    def __init__(self, asltype, duration, npld, slices=1, slicedt=0.0, readout=0.5, ld=1.4, noise=0.002):
+    def __init__(self, asltype, duration, npld, nslices=1, slicedt=0.0, readout=0.5, ld=1.4, noise=0.002):
         self.asltype = asltype
         self.duration = duration
         self.npld = npld
-        self.slices = slices
+        self.nslices = nslices
         self.slicedt = slicedt
         self.readout = readout
         self.ld = ld
         self.noise = noise
 
     def __str__(self):
-        if self.slices > 1:
-            return "%is 2D scan with %.2fs label duration, %i slices (time per slice=%.5fs) and readout time %.2fs" % (self.duration, self.ld, self.slices, self.slicedt, self.readout)
+        if self.nslices > 1:
+            return "%is 2D scan with %.2fs label duration, %i slices (time per slice=%.5fs) and readout time %.2fs" % (self.duration, self.ld, self.nslices, self.slicedt, self.readout)
         else:
             return "%is 3D scan with  %.2fs label duration and readout time %fs" % (self.duration, self.ld, self.readout)
 
-class ASLParams(object):
+class PhysParams(object):
     """
     Define the physiological parameters to use
     
@@ -55,14 +50,14 @@ class ATTDist(object):
         total_points = int(1 + np.ceil((end-start)/step))
         taper_points = int(np.floor(taper / step))
         self.start, self.end, self.step, self.taper = start, end, step, taper
-        self.dist = np.linspace(start, end, total_points)
+        self.atts = np.linspace(start, end, total_points)
         self.exclude_taper = np.linspace(start+taper, end-taper, total_points - 2*taper_points)
         self.weight = np.concatenate((
             np.linspace(0.5, 1.0, taper_points),
             np.ones(total_points - 2*taper_points),
             np.linspace(1.0, 0.5, taper_points),
         ))
-        self.length = len(self.dist)
+        self.length = len(self.atts)
 
     def __str__(self):
         return "ATT distribution: %i values between %.2fs and %fs (weight taper=%.2fs)" % (self.length, self.start, self.end, self.taper)
