@@ -9,7 +9,7 @@ class ScanParams(object):
     """
     Parameters of the scan to optimize for
     """
-    def __init__(self, asltype, duration, npld, nslices=1, slicedt=0.0, readout=0.5, ld=1.4, noise=0.002):
+    def __init__(self, asltype, duration, npld, nslices=1, slicedt=0.0, readout=0.5, ld=1.4, noise=0.002, plds=None):
         self.asltype = asltype
         self.duration = duration
         self.npld = npld
@@ -17,8 +17,11 @@ class ScanParams(object):
         self.slicedt = slicedt
         self.readout = readout
         self.ld = ld
+        self.plds = plds
         self.noise = noise
-
+        if self.plds is not None and len(self.plds) != self.npld:
+            raise ValueError("Supplied initial PLDs %s is inconsistent with stated number of PLDs: %i" % (plds, npld))
+        
     def __str__(self):
         if self.nslices > 1:
             return "%is 2D scan with %.2fs label duration, %i slices (time per slice=%.5fs) and readout time %.2fs" % (self.duration, self.ld, self.nslices, self.slicedt, self.readout)
@@ -48,14 +51,14 @@ class ATTDist(object):
     """
     def __init__(self, start, end, step, taper=0):
         total_points = int(1 + np.ceil((end-start)/step))
-        taper_points = int(np.floor(taper / step))
+        taper_points = int(np.ceil(taper / step)) - 1 # FIXME I don't agree with this but it is compatible with Joe's code
         self.start, self.end, self.step, self.taper = start, end, step, taper
         self.atts = np.linspace(start, end, total_points)
         self.exclude_taper = np.linspace(start+taper, end-taper, total_points - 2*taper_points)
         self.weight = np.concatenate((
-            np.linspace(0.5, 1.0, taper_points),
-            np.ones(total_points - 2*taper_points),
-            np.linspace(1.0, 0.5, taper_points),
+            np.linspace(0.5, 1.0, taper_points+1),
+            np.ones(total_points - 2*(taper_points+1)),
+            np.linspace(1.0, 0.5, taper_points+1),
         ))
         self.length = len(self.atts)
 
