@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.special
 
 class KineticModel(object):
 
@@ -38,22 +39,38 @@ class BuxtonPcasl(KineticModel):
         # All these arrays have shape [NT, ATTs]
         times = np.repeat(times[..., np.newaxis], len(att), -1)
         ld = np.repeat(ld[..., np.newaxis], len(att), -1)
-        df = np.zeros(times.shape, dtype=np.float32)
-        datt = np.zeros(times.shape, dtype=np.float32)
-        #print("df", df.shape)
 
         # For t between deltaT and label duration plus deltaT
-        t_during = np.logical_and(times > att, times <= (ld + att))
         df_during = M * (1 - np.exp((att - times) / t1_prime))
         datt_during = M * self._phys_params.f * ((-1.0/self._phys_params.t1b) - np.exp((att - times) / t1_prime) * ((1.0/t1_prime) - (1.0/self._phys_params.t1b)))
-        df[t_during] = df_during[t_during]
-        datt[t_during] = datt_during[t_during]
 
         # for t greater than ld plus deltaT
-        t_after = times > (ld + att)
         df_after = M * np.exp((ld + att - times) / t1_prime) * (1 - np.exp(-ld/t1_prime))
         datt_after = M * self._phys_params.f * (1 - np.exp(-ld/t1_prime)) * np.exp((ld + att - times)/t1_prime) * (1.0/t1_prime - 1.0/self._phys_params.t1b)
-        df[t_after] = df_after[t_after]
-        datt[t_after] = datt_after[t_after]
+
+        USE_ERF = False
+        if not USE_ERF:
+            df = np.zeros(times.shape, dtype=np.float32)
+            datt = np.zeros(times.shape, dtype=np.float32)
+
+            # When the TI is effectively equal to LD + ATT we get instabilities due to
+            # rounding which can cause Matlab and Python to categorize time points
+            # differently. This array is designed to define TIs which are 'effectively'
+            # equal so the rounding differences do not matter so much
+            times_equal = np.isclose(times, ld + att)
+            t_during = np.logical_and(times > att, np.logical_or(times < (ld + att), times_equal))
+
+            df[t_during] = df_during[t_during]
+            datt[t_during] = datt_during[t_during]
+
+            t_after = np.logical_and(times > ld + att, np.logical_not(times_equal))
+            df[t_after] = df_after[t_after]
+            datt[t_after] = datt_after[t_after]
+        else:
+            weight_during = ((1+scipy.special.erf((times-att)/0.01))/2) * (scipy.special.erfc((times-ld-att)/0.01)/2)
+            weight_after = (1+scipy.special.erf((times-att-ld)/0.01))/2
+
+            df = df_during * weight_during + df_after * weight_after
+            datt = datt_during * weight_during + datt_after * weight_after
 
         return df, datt
