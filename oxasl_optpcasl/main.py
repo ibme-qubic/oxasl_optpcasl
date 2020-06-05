@@ -6,6 +6,8 @@ Copyright 2019 University of Oxford
 import sys
 import argparse
 
+import numpy as np
+
 from . import __version__
 from .structures import ScanParams, PhysParams, ATTDist, Limits
 from .kinetic_model import BuxtonPcasl
@@ -25,16 +27,19 @@ class OptPcaslArgumentParser(argparse.ArgumentParser):
 
         group = self.add_argument_group("Main Options")
         group.add_argument("--optimize", help="Optimization target", choices=["CBF", "ATT", "both"], default="both")
+        group.add_argument("--cost", help="Do not optimize - just calculate cost of given PLD set", action="store_true", default=False)
         group.add_argument("--init-gridsearch", help="Perform an initial grid-search before main optimization loop", action="store_true", default=False)
         group.add_argument("--init-gridsearch-npts", help="Max number of points in initial grid search", type=int, default=1e5)
+        group.add_argument("--optimize-repeats", help="How many times to run the optimization with random initialization order", type=int, default=1)
         group.add_argument("--debug", help="Debug mode", action="store_true")
         
         group = self.add_argument_group("Scan to optimize for")
         group.add_argument("--asltype", help="ASL data type", choices=["var_multi_pCASL", "look_locker"], default="var_multi_pCASL")
         group.add_argument("--scan-duration", help="Desired scan duration (s)", type=float, default=300)
         group.add_argument("--scan-npld", help="Number of PLDs", type=int, default=6)
+        group.add_argument("--scan-plds", help="Comma-separated initial set of PLDs")
         group.add_argument("--scan-readout", help="Scan readout (non-ASL) time (s)", type=float, default=0.5)
-        group.add_argument("--scan-ld", "--scan-tau", "--scan-bolusdur", help="Labelling duration (s)", type=float, default=1.4)
+        group.add_argument("--scan-ld", "--scan-tau", "--scan-bolusdur", help="Labelling duration in seconds (fixed or initial value for optimization)", type=float, default=1.4)
         group.add_argument("--scan-noise", help="Additive noise std.dev. relative to M0", type=float, default=0.002)
         group.add_argument("--scan-nslices", help="Number of slices in acquisition", type=int, default=1)
         group.add_argument("--scan-slicedt", help="Time increase per slice for 2D readout", type=float, default=0.0)
@@ -74,18 +79,22 @@ def main():
         att_dist = ATTDist(options.att_start, options.att_end, options.att_step, options.att_taper)
 
         # Parameters of the desired scan to optimize for
+        if options.scan_plds is not None:
+            options.scan_plds = np.array([float(v) for v in options.scan_plds.split(",")])
+
         scan_params = ScanParams(options.asltype,
                                  duration=options.scan_duration,
                                  npld=options.scan_npld,
                                  readout=options.scan_readout,
                                  ld=options.scan_ld,
+                                 plds=options.scan_plds,
                                  noise=options.scan_noise,
                                  nslices=options.scan_nslices,
                                  slicedt=options.scan_slicedt)
-        
+
         # PLD limits and step size to search over
         pld_lims = Limits(options.pld_min, options.pld_max, options.pld_step, name="PLD")
-        
+
         # Type of optimisation
         # Note: the output cost is not comparable between D-optimal and L-optimal
         if options.optimize == "CBF":
@@ -110,20 +119,32 @@ def main():
 
         # Run the optimisation with optional initial grid search
         optimizer = Optimizer(scantype)
-        
+
         if options.init_gridsearch:
             initial = optimizer.gridsearch(options.init_gridsearch_npts)
         else:
-            initial = None
-        output = optimizer.optimize(initial)
-        
-        print("\nOptimal PLDs: %s" % output["plds"])
-        if "lds" in output:
-            print("Optimal label durations: %s" % output["lds"])
-        print("Number of repeats: %i" % output["num_av"])
-        print("Scan time: %.1fs" % output["scan_time"])
-        print("Cost: %f" % output["best_cost"])
-        print("DONE")
+            initial = np.array(scantype.initial_params())
+
+        print("\nInitial parameters:\n")
+        for item in scantype.name_params(initial).items():
+            print(" - %s: %s" % item)
+
+        if options.cost:
+            cost = scantype.cost(initial)
+            rpts, total_tr = scantype.repeats_total_tr(initial)
+            print("\nCost: %g" % cost)
+            print("Repeats: %i, TR: %.2fs, Total scan time: %.2fs" % (rpts, total_tr, rpts*total_tr))
+        else:
+            output = optimizer.optimize(initial, reps=options.optimize_repeats)
+            
+            print("\nOptimal PLDs: %s" % output["plds"])
+            if "lds" in output:
+                print("Optimal label durations: %s" % output["lds"])
+            print("Number of repeats: %i" % output["num_av"])
+            print("Scan time: %.1fs" % output["scan_time"])
+            print("Cost: %f" % output["best_cost"])
+            print("DONE")
+
     except (RuntimeError, ValueError) as exc:
         sys.stderr.write("ERROR: %s\n" % str(exc))
         if "--debug" in sys.argv:
