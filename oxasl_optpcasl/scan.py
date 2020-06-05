@@ -92,22 +92,25 @@ class MultiPLDPcasl(Protocol):
 
     def initial_params(self):
         # Parameters in this case are a set of PLDs
-        factor = 1.0/self.pld_lims.step
-        max_pld = self.pld_lims.ub
-        while 1:
+        if self.scan_params.plds is not None:
+            return self.scan_params.plds
+        else:
+            factor = 1.0/self.pld_lims.step
+            max_pld = self.pld_lims.ub
+            while 1:
 
-            # Initial sequence of PLDs spaced evenly between upper and lower bound
-            plds = np.linspace(self.pld_lims.lb, max_pld, self.scan_params.npld)
-            plds = np.round(plds*factor) / factor
-            
-            # See how long the TR is - if it is larger than the maximum, reduce the maximum PLD
-            total_tr = 2*np.sum(self.scan_params.ld + plds + self.scan_params.readout)
-            if total_tr <= self.scan_params.duration:
-                break
-            max_pld -= 0.1
+                # Initial sequence of PLDs spaced evenly between upper and lower bound
+                plds = np.linspace(self.pld_lims.lb, max_pld, self.scan_params.npld)
+                plds = np.round(plds*factor) / factor
+                
+                # See how long the TR is - if it is larger than the maximum, reduce the maximum PLD
+                total_tr = 2*np.sum(self.scan_params.ld + plds + self.scan_params.readout)
+                if total_tr <= self.scan_params.duration:
+                    break
+                max_pld -= 0.1
 
-        return plds
-    
+            return plds
+
     def cost(self, params):
         #print("cparams", params.shape)
         # Hessian matrix for sensitivity of kinetic model [NTrials, NSlices, NATTs, 2, 2]
@@ -132,7 +135,8 @@ class MultiPLDPcasl(Protocol):
         cost[att_weights == 0] = 0      # To correct for 0*nan
         cost[np.isnan(cost)] = np.inf   # To correct for 0*inf
         #print("wcost", cost.shape)
-
+        #print(cost)
+        
         # Take mean of cost across slices and ATTs
         return np.mean(cost, axis=(-1, -2))
         
@@ -143,7 +147,9 @@ class MultiPLDPcasl(Protocol):
         # The PLD that we are testing in this loop gets a different trial value in each
         # column, the other PLDs are constant in each column
         # Adjust the PLDs to the slice delay time and calculate the TI (including labelling duration)
-        trial_plds = np.tile(params[np.newaxis, :], (len(trial_values), 1))
+        params = np.array(params)
+        
+        trial_plds = np.tile(params[np.newaxis, :], [len(trial_values), 1])
         trial_plds[:, idx] = trial_values
         return trial_plds
 
@@ -212,7 +218,9 @@ class MultiPLDPcasl(Protocol):
         df, datt = self.kinetic_model.sensitivity(lds.flatten(), times.flatten(), att)
         df = df.reshape(list(times.shape) + [len(att)])
         datt = datt.reshape(list(times.shape) + [len(att)])
-        #print("df, datt\n", df, datt)
+        #print("df, datt", df.shape)
+        #print(df)
+        #print(datt)
         #print(times)
 
         # Form the Hessian [Trials, Slices, ATTs, 2, 2], summed over PLDs
