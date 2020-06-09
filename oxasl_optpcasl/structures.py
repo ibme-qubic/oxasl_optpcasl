@@ -9,8 +9,7 @@ class ScanParams(object):
     """
     Parameters of the scan to optimize for
     """
-    def __init__(self, asltype, duration, npld, nslices=1, slicedt=0.0, readout=0.5, ld=1.4, noise=0.002, plds=None):
-        self.asltype = asltype
+    def __init__(self, duration, npld, nslices=1, slicedt=0.0, readout=0.5, ld=1.4, noise=0.002, plds=None):
         self.duration = duration
         self.npld = npld
         self.nslices = nslices

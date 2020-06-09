@@ -47,6 +47,12 @@ class Optimizer(object):
         grid_npts =  max(3, int(gridpts**(1.0/nparams)))
         self.log.write(" - %i parameters, %i grid points\n" % (nparams, grid_npts))
         
+        #test_params = [0.200, 1.100, 1.425, 1.650, 2.100, 2.150, 2.300, 2.300, 2.325, 1.8]
+        #print("test1", self.scantype.cost(np.array(test_params)))
+        #print("test2", self.scantype.repeats_total_tr(np.array(test_params)))
+        #return test_params
+        #import sys
+        #sys.exit(1)
         
         best_cost = 1e99
         best_params = []
@@ -60,7 +66,8 @@ class Optimizer(object):
             batch_size = 1000
             finish = True
             
-            n_batches = int(np.ceil(grid_npts ** self.scantype.scan_params.npld / batch_size))
+            n_batches = int(np.ceil(grid_npts ** len(param_bounds) / batch_size))
+
             for batch in range(n_batches):
             #for idx, params in enumerate(param_space):
                 #self.log.write(" - batch %i/%i %f %s\n" % (batch+1, n_batches, best_cost, best_params))
@@ -84,6 +91,7 @@ class Optimizer(object):
                         finish = False
 
             self.log.write(" - Iteration %i: best cost: %f params: %s\n" % (it, best_cost, best_params))
+
             if finish: break
 
             it += 1
@@ -98,7 +106,7 @@ class Optimizer(object):
                 #print("new boudns", new_bounds)
             param_bounds = new_param_bounds
 
-        best_params = sorted(best_params)
+        #best_params = sorted(best_params)
         self.log.write(" - Initializing with parameters: %s\n" % best_params)
         self.log.write("DONE")
         return np.array(best_params)

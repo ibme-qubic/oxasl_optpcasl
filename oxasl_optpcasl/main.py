@@ -12,7 +12,7 @@ from . import __version__
 from .structures import ScanParams, PhysParams, ATTDist, Limits
 from .kinetic_model import BuxtonPcasl
 from .optimize import Optimizer
-from .scan import MultiPLDPcasl, MultiPLDPcaslVarLD, MultiPLDPcaslMultiLD
+from .scan import FixedLDPCASLProtocol, MultiPLDPcaslVarLD, MultiPLDPcaslMultiLD, HadamardFixedLD
 from .cost import CBFCost, ATTCost, DOptimalCost
 
 USAGE = """oxasl_optpcasl <options>"""
@@ -34,7 +34,7 @@ class OptPcaslArgumentParser(argparse.ArgumentParser):
         group.add_argument("--debug", help="Debug mode", action="store_true")
         
         group = self.add_argument_group("Scan to optimize for")
-        group.add_argument("--asltype", help="ASL data type", choices=["var_multi_pCASL", "look_locker"], default="var_multi_pCASL")
+        group.add_argument("--protocol", "--asl-protocol", help="ASL protocol", choices=["pcasl", "hadamard"], default="pcasl")
         group.add_argument("--scan-duration", help="Desired scan duration (s)", type=float, default=300)
         group.add_argument("--scan-npld", help="Number of PLDs", type=int, default=6)
         group.add_argument("--scan-plds", help="Comma-separated initial set of PLDs")
@@ -82,8 +82,7 @@ def main():
         if options.scan_plds is not None:
             options.scan_plds = np.array([float(v) for v in options.scan_plds.split(",")])
 
-        scan_params = ScanParams(options.asltype,
-                                 duration=options.scan_duration,
+        scan_params = ScanParams(duration=options.scan_duration,
                                  npld=options.scan_npld,
                                  readout=options.scan_readout,
                                  ld=options.scan_ld,
@@ -108,14 +107,20 @@ def main():
         kinetic_model = BuxtonPcasl(phys_params)
 
         # LD limits and step size to search over
-        if options.optimize_ld:
-            ld_lims = Limits(options.ld_min, options.ld_max, options.ld_step, name="LD")
-            if options.multi_ld:
-                scantype = MultiPLDPcaslMultiLD(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
+        if options.protocol == "pcasl":
+            if options.optimize_ld:
+                ld_lims = Limits(options.ld_min, options.ld_max, options.ld_step, name="LD")
+                if options.multi_ld:
+                    scantype = MultiPLDPcaslMultiLD(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
+                else:
+                    scantype = MultiPLDPcaslVarLD(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
             else:
-                scantype = MultiPLDPcaslVarLD(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
+                scantype = FixedLDPCASLProtocol(kinetic_model, cost, scan_params, att_dist, pld_lims)
+        elif options.protocol == "hadamard":
+            ld_lims = Limits(options.ld_min, options.ld_max, options.ld_step, name="LD")
+            scantype = HadamardFixedLD(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
         else:
-            scantype = MultiPLDPcasl(kinetic_model, cost, scan_params, att_dist, pld_lims)
+            raise ValueError("Unrecognized protocol: %s" % options.protocol)
 
         # Run the optimisation with optional initial grid search
         optimizer = Optimizer(scantype)
