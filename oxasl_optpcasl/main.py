@@ -5,6 +5,7 @@ Copyright 2019 University of Oxford
 """
 import sys
 import argparse
+import traceback
 
 import numpy as np
 
@@ -12,7 +13,7 @@ from . import __version__
 from .structures import ScanParams, PhysParams, ATTDist, Limits
 from .kinetic_model import BuxtonPcasl
 from .optimize import Optimizer
-from .scan import FixedLDPCASLProtocol, MultiPLDPcaslVarLD, MultiPLDPcaslMultiLD, HadamardFixedLD
+from .scan import FixedLDPCASLProtocol, MultiPLDPcaslVarLD, MultiPLDPcaslMultiLD, HadamardFixedLD, HadamardT1Decay
 from .cost import CBFCost, ATTCost, DOptimalCost
 
 USAGE = """oxasl_optpcasl <options>"""
@@ -32,9 +33,9 @@ class OptPcaslArgumentParser(argparse.ArgumentParser):
         group.add_argument("--init-gridsearch-npts", help="Max number of points in initial grid search", type=int, default=1e5)
         group.add_argument("--optimize-repeats", help="How many times to run the optimization with random initialization order", type=int, default=1)
         group.add_argument("--debug", help="Debug mode", action="store_true")
-        
+
         group = self.add_argument_group("Scan to optimize for")
-        group.add_argument("--protocol", "--asl-protocol", help="ASL protocol", choices=["pcasl", "hadamard"], default="pcasl")
+        group.add_argument("--protocol", "--asl-protocol", help="ASL protocol", choices=["pcasl", "hadamard", "hadamardt1"], default="pcasl")
         group.add_argument("--scan-duration", help="Desired scan duration (s)", type=float, default=300)
         group.add_argument("--scan-npld", help="Number of PLDs", type=int, default=6)
         group.add_argument("--scan-plds", help="Comma-separated initial set of PLDs")
@@ -44,7 +45,7 @@ class OptPcaslArgumentParser(argparse.ArgumentParser):
         group.add_argument("--scan-nslices", help="Number of slices in acquisition", type=int, default=1)
         group.add_argument("--scan-slicedt", help="Time increase per slice for 2D readout", type=float, default=0.0)
         group.add_argument("-f", help="CBF value to optimize for", type=float, default=50.0/6000)
-        
+
         group = self.add_argument_group("ATT distribution")
         group.add_argument("--att-start", help="Starting value for ATT distribution (s)", type=float, default=0.2)
         group.add_argument("--att-end", help="Ending value for ATT distribution (s)", type=float, default=2.1)
@@ -54,16 +55,17 @@ class OptPcaslArgumentParser(argparse.ArgumentParser):
         group = self.add_argument_group("PLD limits")
         group.add_argument("--pld-min", help="Minimum PLD (s)", type=float, default=0.1)
         group.add_argument("--pld-max", help="Maximum PLD (s)", type=float, default=3.0)
-        group.add_argument("--pld-step", help="Step to search for optimal PLDs (s)", type=float, default=0.025)        
+        group.add_argument("--pld-step", help="Step to search for optimal PLDs (s)", type=float, default=0.025)
 
         group = self.add_argument_group("Labelling duration limits")
         group.add_argument("--optimize-ld", help="Optimize over varying labelling durations", action="store_true", default=False)
         group.add_argument("--multi-ld", help="Allow independent label duration for each PLD", action="store_true", default=False)
         group.add_argument("--ld-min", help="Minimum LD (s)", type=float, default=0.1)
         group.add_argument("--ld-max", help="Maximum LD (s)", type=float, default=1.8)
-        group.add_argument("--ld-step", help="Step to search for optimal LD (s)", type=float, default=0.025)        
+        group.add_argument("--ld-step", help="Step to search for optimal LD (s)", type=float, default=0.025)
 
 def main():
+    """ Main CLI entry point """
     try:
         arg_parser = OptPcaslArgumentParser()
         options = arg_parser.parse_args()
@@ -71,10 +73,10 @@ def main():
         welcome = "OXASL - PCASL Optimizer %s" % __version__
         print(welcome)
         print("=" * len(welcome))
-        
+
         # Define the ASL parameters
         phys_params = PhysParams(**vars(options))
-        
+
         # ATT (BAT) distribution
         att_dist = ATTDist(options.att_start, options.att_end, options.att_step, options.att_taper)
 
@@ -107,9 +109,9 @@ def main():
         kinetic_model = BuxtonPcasl(phys_params)
 
         # LD limits and step size to search over
+        ld_lims = Limits(options.ld_min, options.ld_max, options.ld_step, name="LD")
         if options.protocol == "pcasl":
             if options.optimize_ld:
-                ld_lims = Limits(options.ld_min, options.ld_max, options.ld_step, name="LD")
                 if options.multi_ld:
                     scantype = MultiPLDPcaslMultiLD(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
                 else:
@@ -117,8 +119,16 @@ def main():
             else:
                 scantype = FixedLDPCASLProtocol(kinetic_model, cost, scan_params, att_dist, pld_lims)
         elif options.protocol == "hadamard":
-            ld_lims = Limits(options.ld_min, options.ld_max, options.ld_step, name="LD")
             scantype = HadamardFixedLD(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
+        elif options.protocol == "hadamardt1":
+            scantype = HadamardT1Decay(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
+            #lds = np.array([1.1500, 0.6750, 0.4750, 0.3750, 0.3000, 0.2500, 0.2250])
+            #lds = np.array([1.1500, 0.6711, 0.4757, 0.3688, 0.3012, 0.2546, 0.2205])
+            #print(lds)
+            #print(scantype._eff_plds(lds))
+            #print(scantype._te_cost(lds))
+            #print(scantype._bolus_fit(1.15, 0.025))
+            #sys.exit(1)
         else:
             raise ValueError("Unrecognized protocol: %s" % options.protocol)
 
@@ -141,7 +151,7 @@ def main():
             print("Repeats: %i, TR: %.2fs, Total scan time: %.2fs" % (rpts, total_tr, rpts*total_tr))
         else:
             output = optimizer.optimize(initial, reps=options.optimize_repeats)
-            
+
             print("\nOptimal PLDs: %s" % output["plds"])
             if "lds" in output:
                 print("Optimal label durations: %s" % output["lds"])
@@ -153,5 +163,4 @@ def main():
     except (RuntimeError, ValueError) as exc:
         sys.stderr.write("ERROR: %s\n" % str(exc))
         if "--debug" in sys.argv:
-            import traceback
             traceback.print_exc()
