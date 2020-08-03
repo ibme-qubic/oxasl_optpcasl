@@ -20,7 +20,7 @@ class ScanParams(object):
         self.noise = noise
         if self.plds is not None and len(self.plds) != self.npld:
             raise ValueError("Supplied initial PLDs %s is inconsistent with stated number of PLDs: %i" % (plds, npld))
-        
+
     def __str__(self):
         if self.nslices > 1:
             return "%is 2D scan with %.2fs label duration, %i slices (time per slice=%.5fs) and readout time %.2fs" % (self.duration, self.ld, self.nslices, self.slicedt, self.readout)
@@ -30,7 +30,7 @@ class ScanParams(object):
 class PhysParams(object):
     """
     Define the physiological parameters to use
-    
+
     (as per Buxton et al. MRM 1998)
     """
     def __init__(self, **kwargs):
