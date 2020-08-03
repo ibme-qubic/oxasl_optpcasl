@@ -1,18 +1,27 @@
+"""
+OXASL_OPTPCASL - Kinetic models for PCASL optimizer
+"""
 import numpy as np
 import scipy.special
 
 class KineticModel(object):
+    """
+    Base class for a kinetic model
+
+    The kinetic model must be able to calculate the sensitivity of CBF and ATT to specified
+    labelling durations and time points at a range of ATTs
+    """
 
     def __init__(self, phys_params):
         self._phys_params = phys_params
 
     def sensitivity(self, ld, times, att):
         """
-        This function calculates the sensitivties (partial derivative) of the kinetic 
+        This function calculates the sensitivities (partial derivative) of the kinetic
         model
-        
+
         :param ld: Labelling duration(s). This must have a shape compatible with
-                   ``times``, i.e one LD per time point or a single scalar LD. 
+                   ``times``, i.e one LD per time point or a single scalar LD.
         :param times: Time points [NT]
         :param att: ATT distribution [ATTs]
 
@@ -21,6 +30,9 @@ class KineticModel(object):
         raise NotImplementedError()
 
 class BuxtonPcasl(KineticModel):
+    """
+    Basic one-compartment Buxton model
+    """
 
     def sensitivity(self, ld, times, att):
         """
@@ -29,7 +41,7 @@ class BuxtonPcasl(KineticModel):
 
         Note that we assume a fixed flow value in t1_prime in order
         to simplify the equations. It is shown in Chappell et al (FIXME ref) that
-        this causes negligible error in the kinetic model and avoids a circular 
+        this causes negligible error in the kinetic model and avoids a circular
         dependency of the model on its own output.
         """
         t1_prime = 1.0/((1.0/self._phys_params.t1t) + (self._phys_params.f/self._phys_params.lam))
@@ -50,14 +62,14 @@ class BuxtonPcasl(KineticModel):
 
         USE_ERF = False
         if not USE_ERF:
-            df = np.zeros(times.shape, dtype=np.float32)
-            datt = np.zeros(times.shape, dtype=np.float32)
-
             # When the TI is effectively equal to LD + ATT we get instabilities due to
             # rounding which can cause Matlab and Python to categorize time points
             # differently. This array is designed to define TIs which are 'effectively'
             # equal so the rounding differences do not matter so much
             times_equal = np.isclose(times, ld + att)
+
+            df = np.zeros(times.shape, dtype=np.float32)
+            datt = np.zeros(times.shape, dtype=np.float32)
             t_during = np.logical_and(times > att, np.logical_or(times < (ld + att), times_equal))
 
             df[t_during] = df_during[t_during]
@@ -67,6 +79,8 @@ class BuxtonPcasl(KineticModel):
             df[t_after] = df_after[t_after]
             datt[t_after] = datt_after[t_after]
         else:
+            # The alternative is to smoothly blend the before/after bolus arrival solutions
+            # using an error function with a short time scale (0.01s in this case)
             weight_during = ((1+scipy.special.erf((times-att)/0.01))/2) * (scipy.special.erfc((times-ld-att)/0.01)/2)
             weight_after = (1+scipy.special.erf((times-att-ld)/0.01))/2
 
