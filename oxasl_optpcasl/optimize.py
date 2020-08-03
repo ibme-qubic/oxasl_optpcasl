@@ -4,7 +4,6 @@ OXASL_OPTPCASL - Functions for optimizing the PLDs of a multi-pld pCASL protocol
 Copyright 2019 University of Oxford
 """
 import sys
-import copy
 import itertools
 
 import numpy as np
@@ -24,7 +23,7 @@ class OptimizationOutput(object):
 class Optimizer(object):
     """
     Optimization base class
-    
+
     Defines the basic algorithm for optimization. The L-optimal and D-optimal subclasses
     implement the particular cost functions for these methods
     """
@@ -41,23 +40,31 @@ class Optimizer(object):
         self.scantype = scantype
 
     def gridsearch(self, gridpts=1e6):
+        """
+        Do a grid-search to derive an initial set of parameters
+
+        This works best with a small number of parameters. When the number of parameters
+        is large it is impossible to sample finely enough to get a useful result.
+
+        :param gridpts: Approximate number of grid points to allow (in total)
+        """
         self.log.write("Doing initial grid search for best parameters\n")
         param_bounds = self.scantype.param_bounds()
         nparams = len(param_bounds)
-        grid_npts =  max(3, int(gridpts**(1.0/nparams)))
+        grid_npts = max(3, int(gridpts**(1.0/nparams)))
         self.log.write(" - %i parameters, %i grid points\n" % (nparams, grid_npts))
-        
+
         #test_params = [0.200, 1.100, 1.425, 1.650, 2.100, 2.150, 2.300, 2.300, 2.325, 1.8]
         #print("test1", self.scantype.cost(np.array(test_params)))
         #print("test2", self.scantype.repeats_total_tr(np.array(test_params)))
         #return test_params
         #import sys
         #sys.exit(1)
-        
+
         best_cost = 1e99
         best_params = []
         tol = 0.01
-        it=1
+        iteration = 1
         while 1:
             param_ranges = [np.linspace(bounds[0], bounds[1], grid_npts) for bounds in param_bounds]
             param_space = itertools.product(*param_ranges)
@@ -65,7 +72,7 @@ class Optimizer(object):
 
             batch_size = 1000
             finish = True
-            
+
             n_batches = int(np.ceil(grid_npts ** len(param_bounds) / batch_size))
 
             for batch in range(n_batches):
@@ -90,11 +97,12 @@ class Optimizer(object):
                     if diff > tol:
                         finish = False
 
-            self.log.write(" - Iteration %i: best cost: %f params: %s\n" % (it, best_cost, best_params))
+            self.log.write(" - Iteration %i: best cost: %f params: %s\n" % (iteration, best_cost, best_params))
 
-            if finish: break
+            if finish:
+                break
 
-            it += 1
+            iteration += 1
             new_param_bounds = []
             for param, bounds in zip(best_params, param_bounds):
                 width = (bounds[1] - bounds[0]) / (grid_npts-1)
@@ -112,6 +120,16 @@ class Optimizer(object):
         return np.array(best_params)
 
     def optimize(self, initial_params=None, reps=1):
+        """
+        Optimize parameters
+
+        :param initial_params: Initial values of parameters
+        :param reps: Number of times to repeat optimization. Each iteration will
+                     vary the parameters in a random order so the outcome may
+                     differ. The final result will be the one with the best cost
+
+        :return: Mapping from key to output value, e.g. keys include 'best_cost', 'params'
+        """
         self.log.write("Optimizing PLDs for: %s\n" % self.scantype)
         self.log.write("PLD search limits: %s\n" % self.scantype.pld_lims)
         self.log.write("Optimizing for %i PLDs\n" % self.scantype.scan_params.npld)
@@ -125,8 +143,8 @@ class Optimizer(object):
             output = self._optimize_once(initial_params)
             self.log.write("DONE - Optimized parameters: %s (cost: %f)\n" % (output["params"], output["best_cost"]))
             if output["best_cost"] < best_cost:
-                    best_cost = output["best_cost"]
-                    best_output = output
+                best_cost = output["best_cost"]
+                best_output = output
 
         self.log.write("Final parameters: %s (cost: %f)\n" % (best_output["params"], best_output["best_cost"]))
         return best_output
@@ -150,7 +168,7 @@ class Optimizer(object):
                 #print("Cost: %s" % cost)
                 if len(cost) == 0:
                     continue
-                 
+
                 #print(cost)
                 #import sys
                 #sys.exit(1)
@@ -158,7 +176,7 @@ class Optimizer(object):
                 min_cost_idx = np.argmin(cost)
                 current_params = trial_params[min_cost_idx]
                 #print("New PLDs: %s (cost: %f)" % (current_params, min_cost))
-            
+
                 # Save the results from each step for visualising
                 cost_history.append(min_cost)
                 param_history.append(current_params)
@@ -167,7 +185,6 @@ class Optimizer(object):
 
             if np.allclose(current_params, old_params):
                 break
-        
 
         num_av, total_tr = self.scantype.repeats_total_tr(current_params)
         output = {
