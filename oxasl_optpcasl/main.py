@@ -37,6 +37,7 @@ class OptPcaslArgumentParser(argparse.ArgumentParser):
 
         group = self.add_argument_group("Scan to optimize for")
         group.add_argument("--protocol", "--asl-protocol", help="ASL protocol", choices=["pcasl", "hadamard", "hadamardt1", "hadamardvar", "hadamardfl"], default="pcasl")
+        group.add_argument("--scan-had-size", help="Size of matrix for Hadamard protocols (4, 8 or 12)", type=int, default=8)
         group.add_argument("--scan-duration", help="Desired scan duration (s)", type=float, default=300)
         group.add_argument("--scan-npld", help="Number of PLDs", type=int, default=6)
         group.add_argument("--scan-plds", "--scan-pld", help="Comma-separated initial set of PLDs")
@@ -97,7 +98,8 @@ def main():
                                  plds=options.scan_plds,
                                  noise=options.scan_noise,
                                  nslices=options.scan_nslices,
-                                 slicedt=options.scan_slicedt)
+                                 slicedt=options.scan_slicedt,
+                                 had_size=options.scan_had_size)
 
         # PLD limits and step size to search over
         pld_lims = Limits(options.pld_min, options.pld_max, options.pld_step, name="PLD")

@@ -9,7 +9,7 @@ class ScanParams(object):
     """
     Parameters of the scan to optimize for
     """
-    def __init__(self, duration, npld, nslices=1, slicedt=0.0, readout=0.5, ld=1.4, noise=0.002, plds=None):
+    def __init__(self, duration, npld, nslices=1, slicedt=0.0, readout=0.5, ld=1.4, noise=0.002, plds=None, had_size=8):
         self.duration = duration
         self.npld = npld
         self.nslices = nslices
@@ -18,6 +18,7 @@ class ScanParams(object):
         self.ld = ld
         self.plds = plds
         self.noise = noise
+        self.had_size=had_size
         if self.plds is not None and len(self.plds) != self.npld:
             raise ValueError("Supplied initial PLDs %s is inconsistent with stated number of PLDs: %i" % (plds, npld))
 

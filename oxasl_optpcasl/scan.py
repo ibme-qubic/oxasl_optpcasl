@@ -386,42 +386,44 @@ class Hadamard(PcaslProtocol):
     """
     def __init__(self, *args, **kwargs):
         PcaslProtocol.__init__(self, *args, **kwargs)
-        if self.scan_params.npld != 1:
-            raise ValueError("Hadamard protocol must have a single PLD")
-        self.had_size = kwargs.get("had_size", 8)
+        self.had_size = self.scan_params.had_size
         self.nld = 1
 
     def repeats_total_tr(self, params):
-        pld = params[..., 0]
-        sub_boli = self._sub_boli(params[..., 1:])
+        plds = params[..., :self.scan_params.npld]
+        sub_boli = self._sub_boli(params[..., self.scan_params.npld:])
+        total_tr = 0
 
-        total_tr = self.had_size * (np.sum(sub_boli, axis=-1) + pld + self.scan_params.readout)
+        for pld_idx in range(self.scan_params.npld):
+            pld = plds[..., pld_idx]
+            total_tr += self.had_size * (np.sum(sub_boli, axis=-1) + pld + self.scan_params.readout)
         return np.floor(self.scan_params.duration/total_tr), np.round(total_tr, 5)
 
     def cost(self, params):
         # For comparison with other protocols need to scale
-        # cost since each repetition gives 8 volumes of information
+        # cost since each repetition gives self.had_size volumes of information
         # rather than 2 for a label/control acquisition
         return PcaslProtocol.cost(self, params) / (self.had_size/2)
 
     def protocol_summary(self, params):
-        pld = params[0]
-        lds = self._sub_boli(params[1:])
+        plds = params[..., :self.scan_params.npld]
+        lds = self._sub_boli(params[self.scan_params.npld:])
         had = scipy.linalg.hadamard(self.had_size)
         ret = []
-        for row in had:
-            ret.append(("", lds, row, pld, self.scan_params.readout))
+        for pld in plds:
+            for row in had:
+                ret.append(("", lds, row, pld, self.scan_params.readout))
         return ret
 
     def _timings(self, params):
-        eff_lds = self._sub_boli(params[..., 1:])
-        eff_plds = self._effective_plds(eff_lds, params[..., 0])
+        plds = params[..., :self.scan_params.npld]
+        eff_lds = self._sub_boli(params[..., self.scan_params.npld:])
+        eff_lds_full = np.repeat(eff_lds, self.scan_params.npld, axis=-1)
+        eff_plds_full = np.zeros(eff_lds_full.shape)
+        for pld in range(self.scan_params.npld):
+            eff_plds_full[..., pld*(self.had_size-1):(pld+1)*(self.had_size-1)] = self._effective_plds(eff_lds, plds[..., pld])
 
-        if params.ndim == 1:
-            print("Hadamard: effective LDs/PLDs")
-            print(eff_lds)
-            print(eff_plds)
-        return eff_lds, eff_plds
+        return eff_lds_full, eff_plds_full
 
     def _effective_plds(self, lds, pld=0):
         """
@@ -562,10 +564,7 @@ class HadamardMultiLd(Hadamard):
     There number of LDs is the Hadamard size - 1 (e.g. 7 for a 8x7 Hadamard matrix)
     """
     def __init__(self, *args, **kwargs):
-        PcaslProtocol.__init__(self, *args, **kwargs)
-        if self.scan_params.npld != 1:
-            raise ValueError("Hadamard protocol must have a single PLD")
-        self.had_size = kwargs.get("had_size", 8)
+        Hadamard.__init__(self, *args, **kwargs)
         self.nld = self.had_size - 1
 
     def __str__(self):
