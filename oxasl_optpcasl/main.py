@@ -8,12 +8,13 @@ import argparse
 import traceback
 
 import numpy as np
+import tabulate
 
 from . import __version__
 from .structures import ScanParams, PhysParams, ATTDist, Limits
 from .kinetic_model import BuxtonPcasl
 from .optimize import Optimizer
-from .scan import FixedLDPCASLProtocol, MultiPLDPcaslVarLD, MultiPLDPcaslMultiLD, HadamardFixedLD, HadamardT1Decay
+from .scan import *
 from .cost import CBFCost, ATTCost, DOptimalCost
 
 USAGE = """oxasl_optpcasl <options>"""
@@ -35,12 +36,12 @@ class OptPcaslArgumentParser(argparse.ArgumentParser):
         group.add_argument("--debug", help="Debug mode", action="store_true")
 
         group = self.add_argument_group("Scan to optimize for")
-        group.add_argument("--protocol", "--asl-protocol", help="ASL protocol", choices=["pcasl", "hadamard", "hadamardt1"], default="pcasl")
+        group.add_argument("--protocol", "--asl-protocol", help="ASL protocol", choices=["pcasl", "hadamard", "hadamardt1", "hadamardvar", "hadamardfl"], default="pcasl")
         group.add_argument("--scan-duration", help="Desired scan duration (s)", type=float, default=300)
         group.add_argument("--scan-npld", help="Number of PLDs", type=int, default=6)
-        group.add_argument("--scan-plds", help="Comma-separated initial set of PLDs")
+        group.add_argument("--scan-plds", "--scan-pld", help="Comma-separated initial set of PLDs")
         group.add_argument("--scan-readout", help="Scan readout (non-ASL) time (s)", type=float, default=0.5)
-        group.add_argument("--scan-ld", "--scan-tau", "--scan-bolusdur", help="Labelling duration in seconds (fixed or initial value for optimization)", type=float, default=1.4)
+        group.add_argument("--scan-lds", "--scan-ld", "--scan-tau", "--scan-bolusdur", help="Comma-separated labelling duration(s) in seconds (fixed or initial value for optimization)")
         group.add_argument("--scan-noise", help="Additive noise std.dev. relative to M0", type=float, default=0.002)
         group.add_argument("--scan-nslices", help="Number of slices in acquisition", type=int, default=1)
         group.add_argument("--scan-slicedt", help="Time increase per slice for 2D readout", type=float, default=0.0)
@@ -84,10 +85,15 @@ def main():
         if options.scan_plds is not None:
             options.scan_plds = np.array([float(v) for v in options.scan_plds.split(",")])
 
+        if options.scan_lds is not None:
+            options.scan_lds = np.array([float(v) for v in options.scan_lds.split(",")])
+        else:
+            options.scan_lds = [1.4]
+
         scan_params = ScanParams(duration=options.scan_duration,
                                  npld=options.scan_npld,
                                  readout=options.scan_readout,
-                                 ld=options.scan_ld,
+                                 ld=options.scan_lds,
                                  plds=options.scan_plds,
                                  noise=options.scan_noise,
                                  nslices=options.scan_nslices,
@@ -117,11 +123,15 @@ def main():
                 else:
                     scantype = MultiPLDPcaslVarLD(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
             else:
-                scantype = FixedLDPCASLProtocol(kinetic_model, cost, scan_params, att_dist, pld_lims)
+                scantype = FixedLDPcaslProtocol(kinetic_model, cost, scan_params, att_dist, pld_lims)
         elif options.protocol == "hadamard":
-            scantype = HadamardFixedLD(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
+            scantype = HadamardSingleLd(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
         elif options.protocol == "hadamardt1":
             scantype = HadamardT1Decay(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
+        elif options.protocol == "hadamardvar":
+            scantype = HadamardMultiLd(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
+        elif options.protocol == "hadamardfl":
+            scantype = HadamardFreeLunch(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
             #lds = np.array([1.1500, 0.6750, 0.4750, 0.3750, 0.3000, 0.2500, 0.2250])
             #lds = np.array([1.1500, 0.6711, 0.4757, 0.3688, 0.3012, 0.2546, 0.2205])
             #print(lds)
@@ -148,6 +158,8 @@ def main():
             cost = scantype.cost(initial)
             rpts, total_tr = scantype.repeats_total_tr(initial)
             print("\nCost: %g" % cost)
+            protocol = scantype.protocol_summary(initial)
+            print(tabulate.tabulate(protocol, headers=["name", "LDs", "TC", "PLD", "Readout"]))
             print("Repeats: %i, TR: %.2fs, Total scan time: %.2fs" % (rpts, total_tr, rpts*total_tr))
         else:
             output = optimizer.optimize(initial, reps=options.optimize_repeats)
@@ -155,6 +167,7 @@ def main():
             print("\nOptimal PLDs: %s" % output["plds"])
             if "lds" in output:
                 print("Optimal label durations: %s" % output["lds"])
+            print(tabulate.tabulate(scantype.protocol_summary(output["params"]), headers=["name", "LDs", "TC", "PLD", "Readout"]))
             print("Number of repeats: %i" % output["num_av"])
             print("Scan time: %.1fs" % output["scan_time"])
             print("Cost: %f" % output["best_cost"])
