@@ -14,7 +14,7 @@ from . import __version__
 from .structures import ScanParams, PhysParams, ATTDist, Limits
 from .kinetic_model import BuxtonPcasl
 from .optimize import Optimizer
-from .scan import *
+from .scan import get_protocol
 from .cost import CBFCost, ATTCost, DOptimalCost
 
 USAGE = """oxasl_optpcasl <options>"""
@@ -118,31 +118,7 @@ def main():
 
         # LD limits and step size to search over
         ld_lims = Limits(options.ld_min, options.ld_max, options.ld_step, name="LD")
-        if options.protocol == "pcasl":
-            if options.optimize_ld:
-                if options.multi_ld:
-                    scantype = MultiPLDPcaslMultiLD(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
-                else:
-                    scantype = MultiPLDPcaslVarLD(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
-            else:
-                scantype = FixedLDPcaslProtocol(kinetic_model, cost, scan_params, att_dist, pld_lims)
-        elif options.protocol == "hadamard":
-            scantype = HadamardSingleLd(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
-        elif options.protocol == "hadamardt1":
-            scantype = HadamardT1Decay(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
-        elif options.protocol == "hadamardvar":
-            scantype = HadamardMultiLd(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
-        elif options.protocol == "hadamardfl":
-            scantype = HadamardFreeLunch(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
-            #lds = np.array([1.1500, 0.6750, 0.4750, 0.3750, 0.3000, 0.2500, 0.2250])
-            #lds = np.array([1.1500, 0.6711, 0.4757, 0.3688, 0.3012, 0.2546, 0.2205])
-            #print(lds)
-            #print(scantype._eff_plds(lds))
-            #print(scantype._te_cost(lds))
-            #print(scantype._bolus_fit(1.15, 0.025))
-            #sys.exit(1)
-        else:
-            raise ValueError("Unrecognized protocol: %s" % options.protocol)
+        scantype = get_protocol(options)(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
 
         # Run the optimisation with optional initial grid search
         optimizer = Optimizer(scantype)

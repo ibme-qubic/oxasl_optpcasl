@@ -6,6 +6,29 @@ Copyright 2019 University of Oxford
 import numpy as np
 import scipy.linalg
 
+def get_protocol(options):
+    """
+    Get the protocol class from command line options
+    """
+    if options.protocol == "pcasl":
+        if options.optimize_ld:
+            if options.multi_ld:
+                return MultiPLDPcaslMultiLD
+            else:
+                return MultiPLDPcaslVarLD
+        else:
+            return FixedLDPcaslProtocol
+    elif options.protocol == "hadamard":
+        return HadamardSingleLd
+    elif options.protocol == "hadamardt1":
+        return HadamardT1Decay
+    elif options.protocol == "hadamardvar":
+        return HadamardMultiLd
+    elif options.protocol == "hadamardfl":
+        return HadamardFreeLunch
+    else:
+        raise ValueError("Unrecognized protocol: %s" % options.protocol)
+
 class Protocol(object):
     """
     A scan protocol that can be optimized
@@ -572,3 +595,13 @@ class HadamardMultiLd(Hadamard):
 
     def _sub_boli(self, lds, step_size=0.025):
         return lds
+
+PROTOCOLS = {
+    "PCASL (fixed LD" : FixedLDPcaslProtocol,
+    "PCASL (variable LD)" : MultiPLDPcaslVarLD,
+    "PCASL (multiple variable LDs)" : MultiPLDPcaslMultiLD,
+    "Hadamard (constant sub-bolus LDs)" : HadamardSingleLd,
+    "Hadamard (T1-decay sub-bolus LDs)" : HadamardT1Decay,
+    "Hadamard (Variable sub-bolus LDs"  : HadamardMultiLd,
+    "Hadamard ('Free lunch')" : HadamardSingleLd,
+}
