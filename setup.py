@@ -94,7 +94,7 @@ kwargs = {
             "oxasl_optpcasl=oxasl_optpcasl.main:main",
         ],
         'gui_scripts' : [
-            "oxasl_optpcasl_gui=oxasl_optpcasl.gui:main",
+            "oxasl_optpcasl_gui=oxasl_optpcasl.gui.main_window:main",
         ],
     },
     'classifiers' : [
