@@ -1,5 +1,0 @@
-{
-    "python.pythonPath": "/usr/local/fsl/fslpython/envs/fslpython/bin/python",
-    "python.linting.pylintEnabled": true,
-    "python.linting.enabled": true
-}
