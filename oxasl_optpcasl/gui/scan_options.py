@@ -130,7 +130,7 @@ class ScanOptions(TabPage):
         try:
             plds = self._plds.GetValue()
             if len(plds) != expected_nplds:
-                self._errors["PLD"] = "Wrong number of PLDs - expected %i" % expected_nlds
+                self._errors["PLD"] = "Wrong number of PLDs - expected %i" % expected_nplds
         except ValueError:
             self._errors["PLD"] = "PLDs must be space or comma separated numbers"
         self._update_errors()
