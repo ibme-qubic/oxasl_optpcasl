@@ -204,6 +204,11 @@ class PcaslProtocol(Protocol):
             ret = np.round(np.arange(start, stop+0.001, -self.ld_lims.step), 5)
             return ret
 
+    def cov(self, params):
+        # Hessian matrix for sensitivity of kinetic model [NTrials, NSlices, NATTs, 2, 2]
+        hessian = self._hessian(params)
+        return self.cost_model.cov(hessian)
+
     def cost(self, params):
         # Hessian matrix for sensitivity of kinetic model [NTrials, NSlices, NATTs, 2, 2]
         hessian = self._hessian(params)
@@ -230,7 +235,7 @@ class PcaslProtocol(Protocol):
 
     def repeats_total_tr(self, params):
         # Allow for label/control image at each time point
-        lds, plds = self._timings(params)
+        lds, plds = self.timings(params)
         tr = lds + plds + self.scan_params.readout
         total_tr = 2*np.sum(tr, axis=-1)
 
@@ -258,12 +263,16 @@ class PcaslProtocol(Protocol):
                 max_pld -= 0.1
 
             return plds
-        
+
     def _initial_lds(self):
+        if isinstance(self.scan_params.ld, (int, float)):
+            return [float(self.scan_params.ld)] * self.nld
+
         nld = len(self.scan_params.ld)
         if nld == self.nld:
-           return self.scan_params.ld
+            return self.scan_params.ld
         elif nld == 1 and self.nld > 1:
+            # FIXME use min LD???
             return [self.ld_lims.lb] * self.nld
             # Initial sequence of LDs spaced evenly between upper and lower bound
             factor = 1.0/self.ld_lims.step
@@ -272,7 +281,7 @@ class PcaslProtocol(Protocol):
         else:
             raise ValueError("Invalid number of initial labelling durations passed (%i provided, expected %i" % (nld, self.nld))
 
-    def _timings(self, params):
+    def timings(self, params):
         """
         Get the effective labelling duration and PLDs for a set of trial params
 
@@ -292,7 +301,7 @@ class PcaslProtocol(Protocol):
         """
         # Time points to evaluate the sensitivity of the kinetic model at
         # [NTrials, NPLDs, NSlices]
-        lds, plds = self._timings(params)
+        lds, plds = self.timings(params)
         lds = np.repeat(lds[..., np.newaxis], len(self.slicedt), axis=-1)
         plds = plds[..., np.newaxis]
         slicedt = self.slicedt[np.newaxis, ...]
@@ -343,7 +352,7 @@ class FixedLDPcaslProtocol(PcaslProtocol):
     def __str__(self):
         return "Multi-PLD PCASL protocol with fixed label duration"
 
-    def _timings(self, params):
+    def timings(self, params):
         return np.full(params.shape, self.scan_params.ld[0]), params
 
     def protocol_summary(self, params):
@@ -365,7 +374,7 @@ class MultiPLDPcaslVarLD(PcaslProtocol):
     def __str__(self):
         return "Multi-PLD PCASL protocol with single variable label duration"
 
-    def _timings(self, params):
+    def timings(self, params):
         plds = params[..., :-1]
         lds = np.zeros(plds.shape, dtype=np.float)
         lds[:] = params[..., -1][..., np.newaxis]
@@ -391,7 +400,7 @@ class MultiPLDPcaslMultiLD(PcaslProtocol):
     def __str__(self):
         return "Multi-PLD PCASL protocol with variable label durations (one per PLD)"
 
-    def _timings(self, params):
+    def timings(self, params):
         return params[..., self.scan_params.npld:], params[..., :self.scan_params.npld]
 
     def protocol_summary(self, params):
@@ -438,7 +447,7 @@ class Hadamard(PcaslProtocol):
                 ret.append(("", lds, row, pld, self.scan_params.readout))
         return ret
 
-    def _timings(self, params):
+    def timings(self, params):
         plds = params[..., :self.scan_params.npld]
         eff_lds = self._sub_boli(params[..., self.scan_params.npld:])
         eff_lds_full = np.repeat(eff_lds, self.scan_params.npld, axis=-1)
@@ -595,13 +604,3 @@ class HadamardMultiLd(Hadamard):
 
     def _sub_boli(self, lds, step_size=0.025):
         return lds
-
-PROTOCOLS = {
-    "PCASL (fixed LD" : FixedLDPcaslProtocol,
-    "PCASL (variable LD)" : MultiPLDPcaslVarLD,
-    "PCASL (multiple variable LDs)" : MultiPLDPcaslMultiLD,
-    "Hadamard (constant sub-bolus LDs)" : HadamardSingleLd,
-    "Hadamard (T1-decay sub-bolus LDs)" : HadamardT1Decay,
-    "Hadamard (Variable sub-bolus LDs"  : HadamardMultiLd,
-    "Hadamard ('Free lunch')" : HadamardSingleLd,
-}
