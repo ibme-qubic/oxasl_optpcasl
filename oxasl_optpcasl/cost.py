@@ -7,21 +7,15 @@ import numpy as np
 
 class CostMeasure(object):
 
-    def cost(self, hessian):
-        raise NotImplementedError()
-
-class LOptimalCost(CostMeasure):
-    """
-    Optimize CBF or ATT
-    """
-    def __init__(self, A):
-        self.A = A
-        self.name = 'L-optimal'
-
-    def cost(self, hessian):
+    def cov(self, hessian):
         """
+        Calculate covariance
+
+        This is essentially the inverse of the sensitivity 
+        matrix with unit conversion
+
         :param hessian: Sensitivity Hessian matrix [..., 2, 2]
-        :return: cost [...]
+        :return: Covariance matrix [..., 2, 2]
         """
         det = np.linalg.det(hessian)
         #print("det", det)
@@ -37,8 +31,31 @@ class LOptimalCost(CostMeasure):
         cov[..., 0, 1] = cov[..., 0, 1] * 6000
         cov[..., 1, 0] = cov[..., 1, 0] * 6000
 
-        cost = np.abs(np.matmul(self.A, cov))
+        return cov
 
+    def cost(self, hessian):
+        """
+        Calculate cost
+
+        :param hessian: Sensitivity Hessian matrix [..., 2, 2]
+        :return: cost [...]
+        """
+        raise NotImplementedError()
+
+class LOptimalCost(CostMeasure):
+    """
+    Optimize CBF or ATT
+    """
+    def __init__(self, A):
+        self.A = A
+        self.name = 'L-optimal'
+
+    def cost(self, hessian):
+        """
+        Cost is taken from a subset of the covariance
+        matrix (e.g. just the CBF or ATT parts)
+        """
+        cost = np.abs(np.matmul(self.A, self.cov(hessian)))
         # Force trace function to batch across leading dimensions
         return np.trace(cost, axis1=-1, axis2=-2)
 
@@ -66,5 +83,10 @@ class DOptimalCost(CostMeasure):
         self.name = 'D-optimal'
 
     def cost(self, hessian):
+        """
+        Cost is determinant of covariance matrix
+        but can calculate this without having to invert
+        hessian
+        """
         det_h = np.linalg.det(hessian)
         return 1.0/np.abs(det_h)
