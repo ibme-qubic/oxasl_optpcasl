@@ -17,18 +17,13 @@ class TabPage(wx.Panel):
         self.idx = idx
         self.n = n
         self.sizer = wx.GridBagSizer(vgap=5, hgap=5)
+        self.SetSizer(self.sizer)
         self.row = 0
         self.title = title
         if name is None:
             self.name = title.lower()
         else:
             self.name = name
-
-    def options(self):
-        """
-        :return: Dictionary of OXASL options from this tab page
-        """
-        return {}
 
     def next_prev(self):
         """
@@ -82,7 +77,13 @@ class TabPage(wx.Panel):
         if label != "":
             text = wx.StaticText(self, label=label)
             text.SetFont(font)
-            self.sizer.Add(text, pos=(self.row, col), border=border, flag=wx.ALIGN_CENTRE_VERTICAL | wx.LEFT)
+            if "textcol" in kwargs:
+                text.SetForegroundColour(kwargs["textcol"])
+            if not widgets:
+                span = (1, 2)
+            else:
+                span = (1, 1)
+            self.sizer.Add(text, pos=(self.row, col), border=border, flag=wx.ALIGN_CENTRE_VERTICAL | wx.LEFT, span=span)
             col += 1
         else:
             text = None
@@ -102,8 +103,7 @@ class TabPage(wx.Panel):
         """
         Add a file picker to the tab
         """
-        if not handler:
-            handler = self._changed
+        handler = self._changed_handler(handler)
         if pick_dir:
             picker = wx.DirPickerCtrl(self, style=wx.DIRP_USE_TEXTCTRL)
             picker.Bind(wx.EVT_DIRPICKER_CHANGED, handler)
@@ -127,8 +127,7 @@ class TabPage(wx.Panel):
         """
         Add a widget to choose from a fixed set of options
         """
-        if not handler:
-            handler = self._changed
+        handler = self._changed_handler(handler)
         ch = wx.Choice(self, choices=choices)
         ch.SetSelection(initial)
         ch.Bind(wx.EVT_CHOICE, handler)
@@ -143,14 +142,33 @@ class TabPage(wx.Panel):
             self.pack(label, ch, **kwargs)
         return ch
 
+    def button(self, label, handler=None, **kwargs):
+        """
+        Add a widget to choose a floating point number
+        """
+        handler = self._changed_handler(handler)
+        btn = wx.Button(self, label=label)
+        btn.Bind(wx.EVT_BUTTON, handler)
+        self.pack("", btn, **kwargs)
+        return btn
+
     def number(self, label, handler=None, **kwargs):
         """
         Add a widget to choose a floating point number
         """
-        if not handler:
-            handler = self._changed
+        handler = self._changed_handler(handler)
         num = NumberChooser(self, changed_handler=handler, **kwargs)
         num.span = 2
+        self.pack(label, num, **kwargs)
+        return num
+
+    def number_list(self, label, handler=None, **kwargs):
+        """
+        Add a widget to choose a list of floating point numbers
+        """
+        handler = self._changed_handler(handler)
+        num = NumberList(self, changed_handler=handler, **kwargs)
+        #num.span = 2
         self.pack(label, num, **kwargs)
         return num
 
@@ -158,8 +176,7 @@ class TabPage(wx.Panel):
         """
         Add a widget to choose an integer
         """
-        if not handler:
-            handler = self._changed
+        handler = self._changed_handler(handler)
         spin = wx.SpinCtrl(self, min=minval, max=maxval, **kwargs)
         spin.SetValue(kwargs.get("initial", 0))
         spin.Bind(wx.EVT_SPINCTRL, handler)
@@ -171,12 +188,11 @@ class TabPage(wx.Panel):
         """
         Add a simple on/off option
         """
+        handler = self._changed_handler(handler)
         cb = wx.CheckBox(self, label=label)
-        cb.span = 2
+        #cb.span = 2
         cb.SetValue(initial)
-        if handler:
-            cb.Bind(wx.EVT_CHECKBOX, handler)
-        else: cb.Bind(wx.EVT_CHECKBOX, self._changed)
+        cb.Bind(wx.EVT_CHECKBOX, handler)
         self.pack("", cb, **kwargs)
         return cb
 
@@ -184,19 +200,18 @@ class TabPage(wx.Panel):
         """
         Add a section heading
         """
-        self.pack(label, bold=True)
+        return self.text(label, bold=True)
 
-    def _changed(self, _):
-        self.update()
+    def text(self, label, **kwargs):
+        self.pack(label, **kwargs)
+        return self.sizer.FindItemAtPosition((self.row-1, 0)).GetWindow()
 
-    def update(self):
-        """
-        Update the run module, i.e. when options have changed
-        """
-        if hasattr(self, "run"):
-            self.run.update()
-            if hasattr(self, "preview"):
-                self.preview.run = self.run
+    def _changed_handler(self, handler):
+        def _changed(event):
+            if handler:
+                handler(event)
+            #self.notebook.win.changed()
+        return _changed
 
     def image(self, label, fname):
         """
@@ -218,6 +233,7 @@ class NumberChooser(wx.Panel):
         super(NumberChooser, self).__init__(parent)
         self.minval, self.orig_min, self.maxval, self.orig_max = minval, minval, maxval, maxval
         self.handler = changed_handler
+
         self.hbox = wx.BoxSizer(wx.HORIZONTAL)
         if label is not None:
             self.label = wx.StaticText(self, label=label)
@@ -231,8 +247,8 @@ class NumberChooser(wx.Panel):
         self.slider = wx.Slider(self, value=initial, minValue=0, maxValue=100)
         self.slider.SetValue(100*(initial-self.minval)/(self.maxval-self.minval))
         self.slider.Bind(wx.EVT_SLIDER, self._slider_changed)
-        self.hbox.Add(self.slider, proportion=1, flag=wx.EXPAND | wx.ALIGN_CENTRE_VERTICAL)
-        self.hbox.Add(self.spin, proportion=0, flag=wx.EXPAND | wx.ALIGN_CENTRE_VERTICAL)
+        self.hbox.Add(self.slider, proportion=1, flag=wx.ALIGN_CENTRE_VERTICAL)
+        self.hbox.Add(self.spin, proportion=0, flag=wx.ALIGN_CENTRE_VERTICAL)
         self.SetSizer(self.hbox)
 
     def GetValue(self):
@@ -273,3 +289,52 @@ class NumberChooser(wx.Panel):
         if self.handler:
             self.handler(event)
         event.Skip()
+
+class NumberList(wx.TextCtrl):
+    """
+    Widget for choosing a list of floating point numbers
+    """
+
+    def __init__(self, parent, label=None, minval=0, maxval=1, initial=[0.5], digits=2, changed_handler=None):
+        super(NumberList, self).__init__(parent)
+        self.minval, self.maxval = minval, maxval
+        self.format = "%%.%if" % digits
+        self.handler = changed_handler
+        self.SetValue(initial)
+        self.Bind(wx.EVT_TEXT, self._text_changed)
+
+    def GetValue(self):
+        """
+        :return: numeric value selected
+        """
+        return self._validate()
+
+    def SetValue(self, vals):
+        """
+        Set the numeric value displayed
+        """
+        try:
+            text = ", ".join([self.format % v for v in vals])
+        except ValueError:
+            text = ""
+        wx.TextCtrl.SetValue(self, text)
+
+    def _text_changed(self, event):
+        try:
+            self._validate()
+        except ValueError as exc:
+            print("WARNING invalid %s" % exc) # FIXME
+
+        if self.handler:
+            self.handler(event)
+        event.Skip()
+
+    def _validate(self):
+        try:
+            vals = wx.TextCtrl.GetValue(self).replace(",", " ").split()
+            floats = []
+            for val in vals:
+                floats.append(float(val))
+            return floats
+        except ValueError:
+            raise ValueError("%s is not a numeric value" % val)
