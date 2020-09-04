@@ -17,6 +17,7 @@ from .scan_summary import ScanSummary
 from .sensitivity_plot import CBFSensitivityPlot, ATTSensitivityPlot, KineticCurve
 
 from ..kinetic_model import BuxtonPcasl
+from ..optimize import Optimizer
 
 class OptPCASLGui(wx.Frame):
     """
@@ -91,23 +92,11 @@ class OptPCASLGui(wx.Frame):
         self._curve = KineticCurve(notebook)
         notebook.AddPage(self._curve, "Kinetic curve")
 
-        run_panel = wx.Panel(self._panel)
-        runsizer = wx.BoxSizer(wx.HORIZONTAL)
-        run_label = wx.StaticText(run_panel, label="")
-        runsizer.Add(run_label, 1, wx.EXPAND)
-        self._run_btn = wx.Button(run_panel, label="Run Optimization")
-        self._run_btn.Bind(wx.EVT_BUTTON, self._dorun)
-        runsizer.Add(self._run_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        run_panel.SetSizer(runsizer)
-        main_vsizer.Add(run_panel, 0, wx.EXPAND)
-        run_panel.Layout()
-
         self._panel.SetSizer(main_vsizer)
         self.Layout()
 
     def set_scan(self):
         """
-        Called when something is changed on one of the tabs
         """
         phys_params = self._phys_params.get()
         kinetic_model = BuxtonPcasl(phys_params)
@@ -115,6 +104,18 @@ class OptPCASLGui(wx.Frame):
         params = protocol.initial_params()
         for plot in (self._att, self._curve, self._cbf, self._ss):
             plot.set(phys_params, protocol, params)
+    
+    def optimize(self, niters=1):
+        """
+        """
+        phys_params = self._phys_params.get()
+        kinetic_model = BuxtonPcasl(phys_params)
+        protocol = self._protocol.get(kinetic_model,  self._opt)
+        params = protocol.initial_params()
+        opt = Optimizer(protocol)
+        output = opt.optimize(params, niters)
+        for plot in (self._att, self._curve, self._cbf, self._ss):
+            plot.set(phys_params, protocol, output["params"])
     
     def _dorun(self, _event):
         try:

@@ -39,6 +39,10 @@ class OptimizerOptions(TabPage):
         self._ld_max = self.number("Max LD (s)", minval=1.0, maxval=5.0, initial=3.0)
         self._ld_step = self.number("Search step (s)", minval=0, maxval=0.1, initial=0.025, digits=4)
         
+        self.section("Optimization loop")
+        self._niters = self.integer("Number of iteration loops", minval=1, maxval=100, initial=10)
+
+        self._set_btn = self.button("Optimize", handler=self._optimize)
         self.sizer.AddGrowableCol(1, 1)
         self.SetSizer(self.sizer)
 
@@ -65,3 +69,6 @@ class OptimizerOptions(TabPage):
             return ATTCost()
         else:
             return DOptimalCost()
+    
+    def _optimize(self, _event=None):
+        self.notebook.win.optimize(self._niters.GetValue())
