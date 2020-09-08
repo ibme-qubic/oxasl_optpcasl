@@ -32,7 +32,7 @@ class SensitivityPlot(wx.Panel):
 
         self.Layout()
 
-    def set(self, phys_params, scan, params):
+    def set(self, phys_params, scan, params, cost_model):
         self._phys_params = phys_params
         self._scan = scan
         self._params = params

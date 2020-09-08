@@ -12,6 +12,7 @@ matplotlib.use('WXAgg')
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.figure import Figure
 
+from ..cost import CBFCost, ATTCost, DOptimalCost
 class ScanSummary(wx.Panel):
     """
     Displays plots illustrating the optimized protocol
@@ -19,6 +20,9 @@ class ScanSummary(wx.Panel):
     def __init__(self, parent):
         self._scan = None
         self._params = None
+        self._cost_model_cbf = CBFCost()
+        self._cost_model_att = ATTCost()
+        self._cost_model_comb = DOptimalCost()
 
         wx.Panel.__init__(self, parent, size=wx.Size(300, 600))
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -33,6 +37,7 @@ class ScanSummary(wx.Panel):
         sizer.Add(plds_panel, 0, wx.EXPAND)
 
         monospace_font = wx.Font(8, wx.FONTFAMILY_TELETYPE, wx.NORMAL, wx.NORMAL, False)
+        bold_font = wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, False)
         label = wx.StaticText(plds_panel, label="PLDs (s)")
         plds_sizer.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         self._plds_text = wx.TextCtrl(plds_panel, style=wx.TE_READONLY)
@@ -73,9 +78,41 @@ class ScanSummary(wx.Panel):
         self._scantime_text.SetFont(monospace_font)
         t_sizer.Add(self._scantime_text, 1, wx.ALL, 5)
         
+        cost_panel = wx.Panel(self)
+        cost_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        cost_panel.SetSizer(cost_sizer)
+        sizer.Add(cost_panel, 0, wx.EXPAND)
+
+        label = wx.StaticText(cost_panel, label="Cost (CBF)")
+        cost_sizer.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        self._cbf_opt_label = wx.StaticText(cost_panel, label="")
+        self._cbf_opt_label.SetFont(bold_font)
+        cost_sizer.Add(self._cbf_opt_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        self._cost_cbf = wx.TextCtrl(cost_panel, style=wx.TE_READONLY)
+        self._cost_cbf.SetFont(monospace_font)
+        cost_sizer.Add(self._cost_cbf, 2, wx.ALL, 5)
+
+        label = wx.StaticText(cost_panel, label="Cost (ATT)")
+        cost_sizer.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        self._att_opt_label = wx.StaticText(cost_panel, label="")
+        self._att_opt_label.SetFont(bold_font)
+        cost_sizer.Add(self._att_opt_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        self._cost_att = wx.TextCtrl(cost_panel, style=wx.TE_READONLY)
+        self._cost_att.SetFont(monospace_font)
+        cost_sizer.Add(self._cost_att, 2, wx.ALL, 5)
+
+        label = wx.StaticText(cost_panel, label="Cost (Combined CBF/ATT)")
+        cost_sizer.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        self._comb_opt_label = wx.StaticText(cost_panel, label="")
+        self._comb_opt_label.SetFont(bold_font)
+        cost_sizer.Add(self._comb_opt_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        self._cost_comb = wx.TextCtrl(cost_panel, style=wx.TE_READONLY)
+        self._cost_comb.SetFont(monospace_font)
+        cost_sizer.Add(self._cost_comb, 2, wx.ALL, 5)
+        
         self.Layout()
 
-    def set(self, phys_params, scan, params):
+    def set(self, phys_params, scan, params, cost_model):
         self._phys_params = phys_params
         self._scan = scan
         self._params = params
@@ -85,19 +122,36 @@ class ScanSummary(wx.Panel):
         self._tr_text.Clear()
         self._rpts_text.Clear()
         self._scantime_text.Clear()
-        
+        self._cost_cbf.Clear()
+        self._cost_att.Clear()
+        self._cost_comb.Clear()
+    
+        self._cbf_opt_label.SetLabel("")
+        self._att_opt_label.SetLabel("")
+        self._comb_opt_label.SetLabel("")
+        if isinstance(cost_model, CBFCost):
+            self._cbf_opt_label.SetLabel("Optimized")
+        elif isinstance(cost_model, ATTCost):
+            self._att_opt_label.SetLabel("Optimized")
+        elif isinstance(cost_model, DOptimalCost):
+            self._comb_opt_label.SetLabel("Optimized")
+
         if self._params is not None:
             paramdict = self._scan.name_params(self._params)
             rpts, tr = self._scan.repeats_total_tr(params)
-            self._plds_text.AppendText(" ".join([str(pld) for pld in paramdict.get("plds", [])]))
-            self._lds_text.AppendText(" ".join([str(ld) for ld in paramdict.get("lds", [self._scan.scan_params.ld])]))
-            self._tr_text.AppendText(str(tr))
+            self._plds_text.AppendText(" ".join(["%.3g" % pld for pld in paramdict.get("plds", [])]))
+            self._lds_text.AppendText(" ".join(["%.3g" % ld for ld in paramdict.get("lds", self._scan.scan_params.ld)]))
+            self._tr_text.AppendText("%.3g" % tr)
             self._rpts_text.AppendText(str(int(rpts)))
-            self._scantime_text.AppendText(str(tr * rpts))
-            
+            self._scantime_text.AppendText("%.1f" % (tr * rpts))
+            self._cost_cbf.AppendText("%.3g" % self._scan.cost(self._params, self._cost_model_cbf))
+            self._cost_att.AppendText("%.3g" % self._scan.cost(self._params, self._cost_model_att))
+            self._cost_comb.AppendText("%.3g" % self._scan.cost(self._params, self._cost_model_comb))
+
             desc = self._scan.protocol_summary(params)
             self._vis._summary = desc
             self._vis.Refresh()
+        self.Layout()
 
 class ScanVisualisation(wx.Panel):
     """
