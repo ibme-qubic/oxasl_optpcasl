@@ -103,7 +103,7 @@ class OptPCASLGui(wx.Frame):
         protocol = self._protocol.get(kinetic_model,  self._opt)
         params = protocol.initial_params()
         for plot in (self._att, self._curve, self._cbf, self._ss):
-            plot.set(phys_params, protocol, params)
+            plot.set(phys_params, protocol, params, None)
     
     def optimize(self, niters=1):
         """
@@ -112,10 +112,10 @@ class OptPCASLGui(wx.Frame):
         kinetic_model = BuxtonPcasl(phys_params)
         protocol = self._protocol.get(kinetic_model,  self._opt)
         params = protocol.initial_params()
-        opt = Optimizer(protocol)
+        opt = Optimizer(protocol, self._opt.cost_model)
         output = opt.optimize(params, niters)
         for plot in (self._att, self._curve, self._cbf, self._ss):
-            plot.set(phys_params, protocol, output["params"])
+            plot.set(phys_params, protocol, output["params"], self._opt.cost_model)
     
     def _dorun(self, _event):
         try:
