@@ -28,7 +28,7 @@ class Optimizer(object):
     implement the particular cost functions for these methods
     """
 
-    def __init__(self, scantype, log=sys.stdout):
+    def __init__(self, scantype, cost_model, log=sys.stdout):
         """
         :param params: ASLParams instance
         :param scan: ASLScan instance giving details of scan to optimize for
@@ -38,6 +38,7 @@ class Optimizer(object):
         """
         self.log = log
         self.scantype = scantype
+        self.cost_model = cost_model
 
     def gridsearch(self, gridpts=1e6):
         """
@@ -86,7 +87,7 @@ class Optimizer(object):
                 batch = np.array([t for t in batch if t is not None])
                 #if idx % 1000 == 0: print(idx, best_cost, best_params)
                 #print(batch.shape)
-                cost = self.scantype.cost(batch)
+                cost = self.scantype.cost(batch, self.cost_model)
                 #cost = self.scantype.cost(np.array(params))
                 min_cost = np.min(cost)
                 if min_cost < best_cost:
@@ -164,7 +165,7 @@ class Optimizer(object):
                 #print("Optimizing parameter %i" % idx)
                 trial_params = self.scantype.trial_params(current_params, idx)
                 #print("Trials: %s" % trial_params[:, idx])
-                cost = self.scantype.cost(trial_params)
+                cost = self.scantype.cost(trial_params, self.cost_model)
                 #print("Cost: %s" % cost)
                 if len(cost) == 0:
                     continue

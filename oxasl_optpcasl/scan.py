@@ -37,9 +37,8 @@ class Protocol(object):
     each parameter, and can calculate the cost of a set of parameters
     """
 
-    def __init__(self, kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims=None):
+    def __init__(self, kinetic_model, scan_params, att_dist, pld_lims, ld_lims=None):
         self.kinetic_model = kinetic_model
-        self.cost_model = cost
         self.scan_params = scan_params
         self.att_dist = att_dist
         self.pld_lims = pld_lims
@@ -91,12 +90,38 @@ class Protocol(object):
         """
         raise NotImplementedError()
 
-    def cost(self, params):
+    def cost(self, params, cost_model):
         """
         Get the cost for a set of parameters
 
         :param params: Parameter set [NTrials, NParams] or [NParams]
+        :param cost_model: Cost model
         :return Cost [NTrials] or scalar
+        """
+        raise NotImplementedError()
+
+    def hessian(self, params):
+        """
+        Calculate Hessian matrix for ATT and CBF
+
+        :param params: Parameters [NTrials, NParams] or [NParams]
+
+        :return: Hessian matrices of second derivatives wrt cbf
+                 and att [NTrials, NSlices, NATTs, 2, 2] or [NSlices, NATTs, 2, 2]
+        """
+        raise NotImplementedError()
+
+    def cov(self, params):
+        """
+        Calculate covariance matrix for ATT and CBF
+
+        This is the inverse of the Hessian with unit conversion and inf/NaN 
+        protection
+
+        :param params: Parameters [NTrials, NParams] or [NParams]
+
+        :return: Covariance matrix for CBF and ATT in standard units
+                 and att [NTrials, NSlices, NATTs, 2, 2] or [NSlices, NATTs, 2, 2]
         """
         raise NotImplementedError()
 
@@ -205,16 +230,29 @@ class PcaslProtocol(Protocol):
             return ret
 
     def cov(self, params):
-        # Hessian matrix for sensitivity of kinetic model [NTrials, NSlices, NATTs, 2, 2]
-        hessian = self._hessian(params)
-        return self.cost_model.cov(hessian)
+        hessian = self.hessian(params)
+        det = np.linalg.det(hessian)
+        #print("det", det)
+        cov = np.zeros(hessian.shape)
+        cov[det != 0] = np.linalg.inv(hessian[det != 0])
+        cov[det == 0] = np.inf
+        #print("cov\n", cov)
+        # Correct for inf*0 errors in A*inverse
+        #cov[np.isnan(cov)] = np.inf
 
-    def cost(self, params):
-        # Hessian matrix for sensitivity of kinetic model [NTrials, NSlices, NATTs, 2, 2]
-        hessian = self._hessian(params)
+        # Change into (ml/100g/min)
+        cov[..., 0, 0] = cov[..., 0, 0] * 6000 * 6000
+        cov[..., 0, 1] = cov[..., 0, 1] * 6000
+        cov[..., 1, 0] = cov[..., 1, 0] * 6000
+
+        return cov
+
+    def cost(self, params, cost_model):
+        # Covariance matrix for sensitivity of kinetic model [NTrials, NSlices, NATTs, 2, 2]
+        cov = self.cov(params)
 
         # Cost at each time point and for each ATT in distribution [NTrials, NSlices, NATTs]
-        cost = self.cost_model.cost(hessian)
+        cost = cost_model.cost(cov)
         #print("cost", cost.shape)
         #print(cost)
 
@@ -265,9 +303,6 @@ class PcaslProtocol(Protocol):
             return plds
 
     def _initial_lds(self):
-        if isinstance(self.scan_params.ld, (int, float)):
-            return [float(self.scan_params.ld)] * self.nld
-
         nld = len(self.scan_params.ld)
         if nld == self.nld:
             return self.scan_params.ld
@@ -290,15 +325,7 @@ class PcaslProtocol(Protocol):
         """
         raise NotImplementedError()
 
-    def _hessian(self, params):
-        """
-        FIXME noise scaling for TE data
-
-        :param params: Parameters [NTrials, NParams] or [NParams]
-
-        :return: Hessian matrices of second derivatives wrt cbf
-                 and att [NTrials, NSlices, NATTs, 2, 2] or [NSlices, NATTs, 2, 2]
-        """
+    def hessian(self, params):
         # Time points to evaluate the sensitivity of the kinetic model at
         # [NTrials, NPLDs, NSlices]
         lds, plds = self.timings(params)
@@ -431,11 +458,11 @@ class Hadamard(PcaslProtocol):
             total_tr += self.had_size * (np.sum(sub_boli, axis=-1) + pld + self.scan_params.readout)
         return np.floor(self.scan_params.duration/total_tr), np.round(total_tr, 5)
 
-    def cost(self, params):
+    def cost(self, params, cost_model):
         # For comparison with other protocols need to scale
         # cost since each repetition gives self.had_size volumes of information
         # rather than 2 for a label/control acquisition
-        return PcaslProtocol.cost(self, params) / (self.had_size/2)
+        return PcaslProtocol.cost(self, params, cost_model) / (self.had_size/2)
 
     def protocol_summary(self, params):
         plds = params[..., :self.scan_params.npld]
@@ -521,7 +548,7 @@ class HadamardT1Decay(Hadamard):
             first_ld = first_ld[..., np.newaxis]
 
         # Derivation of the following is left as an exercise to the reader...
-        t1b = self.kinetic_model._phys_params.t1b
+        t1b = self.kinetic_model.phys_params.t1b
         t = np.zeros(first_ld.shape)
         tau = np.zeros((first_ld.shape[0], self.had_size-1), dtype=np.float32)
         tau[:, 0] = first_ld
@@ -547,9 +574,17 @@ class HadamardFreeLunch(HadamardT1Decay):
 
     The initial labelling duration is fixed by the scan parameters  
     """
-
     def __str__(self):
         return "Hadamard free-lunch protocol with post-initial sub-boli label durations chosen to equalize overall effect of each sub-bolus given T1 decay"
+
+    def _initial_lds(self):
+        # For free-lunch we deal with special case where two initial LDs are given. The
+        # first is the fixed LD and the second the variable first sub-bolus LD. If only
+        # one is given we use it for both these cases
+        if len(self.scan_params.ld) == 2:
+            return [self.scan_params.ld[1]]
+        else:
+            return PcaslProtocol._initial_lds(self)
 
     def _sub_boli(self, lds, step_size=0.025):
         """
@@ -569,7 +604,7 @@ class HadamardFreeLunch(HadamardT1Decay):
             first_ld = first_ld[..., np.newaxis]
 
         # Derivation of the following is left as an exercise to the reader...
-        t1b = self.kinetic_model._phys_params.t1b
+        t1b = self.kinetic_model.phys_params.t1b
         t = np.zeros(first_ld.shape)
         tau = np.zeros((first_ld.shape[0], self.had_size-1), dtype=np.float32)
         tau[:, 0] = first_ld
@@ -585,7 +620,7 @@ class HadamardFreeLunch(HadamardT1Decay):
         # LD at the start
         tau = np.squeeze(np.round(tau / step_size) * step_size)[..., :-1]
 
-        initial_ld = np.full(tau[..., 0].shape, self.scan_params.ld)[..., np.newaxis]
+        initial_ld = np.full(tau[..., 0].shape, self.scan_params.ld[0])[..., np.newaxis]
         return np.concatenate((initial_ld, tau), axis=-1)
         
 class HadamardMultiLd(Hadamard):

@@ -118,10 +118,10 @@ def main():
 
         # LD limits and step size to search over
         ld_lims = Limits(options.ld_min, options.ld_max, options.ld_step, name="LD")
-        scantype = get_protocol(options)(kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims)
+        scantype = get_protocol(options)(kinetic_model, scan_params, att_dist, pld_lims, ld_lims)
 
         # Run the optimisation with optional initial grid search
-        optimizer = Optimizer(scantype)
+        optimizer = Optimizer(scantype, cost)
 
         if options.init_gridsearch:
             initial = optimizer.gridsearch(options.init_gridsearch_npts)
@@ -133,7 +133,7 @@ def main():
             print(" - %s: %s" % item)
 
         if options.cost:
-            cost = scantype.cost(initial)
+            cost = scantype.cost(initial, self.cost_model)
             rpts, total_tr = scantype.repeats_total_tr(initial)
             print("\nCost: %g" % cost)
             protocol = scantype.protocol_summary(initial)
