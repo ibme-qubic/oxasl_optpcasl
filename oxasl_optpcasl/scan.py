@@ -469,9 +469,10 @@ class Hadamard(PcaslProtocol):
         lds = self._sub_boli(params[self.scan_params.npld:])
         had = scipy.linalg.hadamard(self.had_size)
         ret = []
+        print("had", had)
         for pld in plds:
             for row in had:
-                ret.append(("", lds, row, pld, self.scan_params.readout))
+                ret.append(("", lds, row[1:], pld, self.scan_params.readout))
         return ret
 
     def timings(self, params):
