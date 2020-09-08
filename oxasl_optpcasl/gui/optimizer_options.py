@@ -24,19 +24,19 @@ class OptimizerOptions(TabPage):
         self._opttype = self.choice("Method", choices=["Optimize CBF and ATT", "Optimize CBF only", "Optimize ATT only"])
         
         self.section("ATT prior distribution")
-        self._att_start = self.number("Starting value (s)", minval=0, maxval=1.0, initial=0.2)
-        self._att_end = self.number("Starting value (s)", minval=0, maxval=5.0, initial=2.1)
+        self._att_start = self.number("Starting value (s)", minval=0, maxval=1.0, initial=0.2, digits=4)
+        self._att_end = self.number("Starting value (s)", minval=0, maxval=5.0, initial=2.3, digits=4)
         self._att_step = self.number("Step (s)", minval=0, maxval=0.01, initial=0.001, digits=4)
-        self._att_taper = self.number("Taper value (s)", minval=0, maxval=1.0, initial=0.3)
+        self._att_taper = self.number("Taper value (s)", minval=0, maxval=1.0, initial=0.3, digits=4)
         
         self.section("PLD search limits")
-        self._pld_min = self.number("Min PLD (s)", minval=0, maxval=1.0, initial=0.1)
-        self._pld_max = self.number("Max PLD (s)", minval=1.0, maxval=5.0, initial=3.0)
+        self._pld_min = self.number("Min PLD (s)", minval=0, maxval=1.0, initial=0.075, digits=4)
+        self._pld_max = self.number("Max PLD (s)", minval=1.0, maxval=5.0, initial=2.3, digits=4)
         self._pld_step = self.number("Search step (s)", minval=0, maxval=0.1, initial=0.025, digits=4)
         
         self.section("LD search limits")
-        self._ld_min = self.number("Min LD (s)", minval=0, maxval=1.0, initial=0.1)
-        self._ld_max = self.number("Max LD (s)", minval=1.0, maxval=5.0, initial=3.0)
+        self._ld_min = self.number("Min LD (s)", minval=0, maxval=1.0, initial=0.1, digits=4)
+        self._ld_max = self.number("Max LD (s)", minval=1.0, maxval=5.0, initial=1.8, digits=4)
         self._ld_step = self.number("Search step (s)", minval=0, maxval=0.1, initial=0.025, digits=4)
         
         self.section("Optimization loop")
@@ -61,8 +61,6 @@ class OptimizerOptions(TabPage):
 
     @property
     def cost_model(self):
-        import sys
-        sys.stderr.write("cm %s\n" % self._opttype.GetSelection())
         if self._opttype.GetSelection() == 1:
             return CBFCost()
         if self._opttype.GetSelection() == 2:
