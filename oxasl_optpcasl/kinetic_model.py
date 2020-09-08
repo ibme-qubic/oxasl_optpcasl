@@ -13,7 +13,7 @@ class KineticModel(object):
     """
 
     def __init__(self, phys_params):
-        self._phys_params = phys_params
+        self.phys_params = phys_params
 
     def signal(self, ld, times, att, m0=1.0, pldmax=5.0):
         """
@@ -58,7 +58,7 @@ class BuxtonPcasl(KineticModel):
         dependency of the model on its own output.
         """
         KineticModel.__init__(self, phys_params)
-        self.t1_prime = 1.0/((1.0/self._phys_params.t1t) + (self._phys_params.f/self._phys_params.lam))
+        self.t1_prime = 1.0/((1.0/self.phys_params.t1t) + (self.phys_params.f/self.phys_params.lam))
 
     def _preproc(self, ld, times, att):
         # Set up output arrays - take advantage of Numpy broadcasting to combine times with ATTs
@@ -91,23 +91,23 @@ class BuxtonPcasl(KineticModel):
 
         M = np.zeros(times.shape, dtype=np.float32)
 
-        M += weight_during * np.exp(-att/self._phys_params.t1b) * (1-np.exp(-(times-att)/self.t1_prime))
-        M += weight_after * np.exp(-att/self._phys_params.t1b) * np.exp(-(times-ld-att)/self.t1_prime) * (1-np.exp(-ld/self.t1_prime))
+        M += weight_during * np.exp(-att/self.phys_params.t1b) * (1-np.exp(-(times-att)/self.t1_prime))
+        M += weight_after * np.exp(-att/self.phys_params.t1b) * np.exp(-(times-ld-att)/self.t1_prime) * (1-np.exp(-ld/self.t1_prime))
 
-        M *= 2 * self._phys_params.f * self._phys_params.m0b * self._phys_params.alpha * self.t1_prime 
+        M *= 2 * self.phys_params.f * self.phys_params.m0b * self.phys_params.alpha * self.t1_prime 
         return M
 
     def sensitivity(self, ld, times, att):
         ld, times, weight_during, weight_after = self._preproc(ld, times, att)
-        M = 2 * self._phys_params.m0b * self._phys_params.alpha * self.t1_prime * np.exp(-att / self._phys_params.t1b) # [ATTs]
+        M = 2 * self.phys_params.m0b * self.phys_params.alpha * self.t1_prime * np.exp(-att / self.phys_params.t1b) # [ATTs]
 
         # For t between deltaT and label duration plus deltaT
         df_during = M * (1 - np.exp((att - times) / self.t1_prime))
-        datt_during = M * self._phys_params.f * ((-1.0/self._phys_params.t1b) - np.exp((att - times) / self.t1_prime) * ((1.0/self.t1_prime) - (1.0/self._phys_params.t1b)))
+        datt_during = M * self.phys_params.f * ((-1.0/self.phys_params.t1b) - np.exp((att - times) / self.t1_prime) * ((1.0/self.t1_prime) - (1.0/self.phys_params.t1b)))
 
         # for t greater than ld plus deltaT
         df_after = M * np.exp((ld + att - times) / self.t1_prime) * (1 - np.exp(-ld/self.t1_prime))
-        datt_after = M * self._phys_params.f * (1 - np.exp(-ld/self.t1_prime)) * np.exp((ld + att - times)/self.t1_prime) * (1.0/self.t1_prime - 1.0/self._phys_params.t1b)
+        datt_after = M * self.phys_params.f * (1 - np.exp(-ld/self.t1_prime)) * np.exp((ld + att - times)/self.t1_prime) * (1.0/self.t1_prime - 1.0/self.phys_params.t1b)
 
         df = df_during * weight_during + df_after * weight_after
         datt = datt_during * weight_during + datt_after * weight_after
