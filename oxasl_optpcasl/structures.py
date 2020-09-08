@@ -15,7 +15,10 @@ class ScanParams(object):
         self.nslices = nslices
         self.slicedt = slicedt
         self.readout = readout
-        self.ld = ld
+        if isinstance(ld, (float, int)):
+            self.ld = [float(ld)]
+        else:
+            self.ld = ld
         self.plds = plds
         self.noise = noise
         self.had_size=had_size
@@ -49,7 +52,7 @@ class ATTDist(object):
     The 'taper' parameter (seconds) causes the weighting to decay from 1 to 0.5
     at the beginning and end of the distribution
     """
-    def __init__(self, start, end, step, taper=0):
+    def __init__(self, start=0.5, end=2.0, step=0.025, taper=0):
         total_points = int(1 + np.ceil((end-start)/step))
         taper_points = int(np.ceil(taper / step)) - 1 # FIXME I don't agree with this but it is compatible with Joe's code
         self.start, self.end, self.step, self.taper = start, end, step, taper
