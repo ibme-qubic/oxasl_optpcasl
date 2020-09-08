@@ -2,9 +2,9 @@ Theory
 ======
 
 This is a **brief** overvies of the theory behind multi-PLD PCASL optimization. 
-For a more detailed account see Woods et al, 2018 [1]_
+For a more detailed account see Woods et al, 2018, 2020 [1]_ [2]_
 
-``OPTPCASL`` is based on minimising the Cramer-Rao lower bound on the variance 
+``OXASL_OPTPCASL`` is based on minimising the Cramer-Rao lower bound on the variance 
 of the parameters estimated from the data which for a multi-PLD PCASL experiment is
 typically the CBF and the ATT.
 
@@ -84,3 +84,8 @@ References
 .. [1] Woods JG, Chappell MA, Okell TW. A general framework for optimizing
        arterial spin labelling MRI experiments. Magn Reson Med. 2019;81:2474-2488.
        https://doi.org/10.1002/mrm.27580
+       
+.. [2] Woods JG, Chappell MA, Okell TW. Designing and comparing optimized 
+       pseudo-continuous Arterial Spin Labeling protocols for measurement of 
+       cerebral blood flow. NeuroImage 2020 223:1053-8119
+       doi:10.1016/j.neuroimage.2020.117246
