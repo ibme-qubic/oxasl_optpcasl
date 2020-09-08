@@ -322,8 +322,10 @@ class NumberList(wx.TextCtrl):
     def _text_changed(self, event):
         try:
             self._validate()
+            self.SetBackgroundColour(wx.NullColour)
         except ValueError as exc:
-            print("WARNING invalid %s" % exc) # FIXME
+            self.SetBackgroundColour(wx.Colour(255, 150, 150))
+        self.Refresh()
 
         if self.handler:
             self.handler(event)
