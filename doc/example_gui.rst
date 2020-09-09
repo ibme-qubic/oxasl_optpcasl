@@ -316,3 +316,17 @@ When optimizing for CBF and ATT we obtain the following:
 The combined optimization is in between the CBF and ATT-only
 extremes with longer PLDs than the ATT-only optimization but shorter
 than the CBF-only case.
+
+Physiological parameters
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Physiological parameters tab allows control of the assumed values of
+parameters used in the kinetic model (and hence affecting the cost function
+and optimization).
+
+.. image:: /images/gui/phys_params.png
+    :alt: Physiological parameters
+
+The estimated perfusion is a fixed value used to calculate the effective T1
+of labelled blood. Modification of this value should not have a significant
+effect on the cost or optimization, however.

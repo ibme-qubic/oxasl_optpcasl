@@ -2,7 +2,7 @@ Theory
 ======
 
 This is a **brief** overvies of the theory behind multi-PLD PCASL optimization. 
-For a more detailed account see Woods et al, 2018, 2020 [1]_ [2]_
+For a more detailed account see Woods et al, 2018 [1]_, 2020 [2]_
 
 ``OXASL_OPTPCASL`` is based on minimising the Cramer-Rao lower bound on the variance 
 of the parameters estimated from the data which for a multi-PLD PCASL experiment is
