@@ -10,9 +10,14 @@ import sys
 
 import wx
 
-from .sensitivity_plot import PlotOutputPanel
 from .scan_options import ScanOptions
+from .phys_params import PhysParamOptions
 from .optimizer_options import OptimizerOptions
+from .scan_summary import ScanSummary
+from .sensitivity_plot import CBFSensitivityPlot, ATTSensitivityPlot, KineticCurve
+
+from ..kinetic_model import BuxtonPcasl
+from ..optimize import Optimizer
 
 class OptPCASLGui(wx.Frame):
     """
@@ -20,7 +25,7 @@ class OptPCASLGui(wx.Frame):
     """
 
     def __init__(self):
-        wx.Frame.__init__(self, None, title="OXASL PCASL Optimizer", size=(1100, 600), style=wx.DEFAULT_FRAME_STYLE)
+        wx.Frame.__init__(self, None, title="OXASL PCASL Optimizer", size=(1100, 700), style=wx.DEFAULT_FRAME_STYLE)
         self._panel = wx.Panel(self)
 
         local_dir = os.path.abspath(os.path.dirname(__file__))
@@ -55,35 +60,63 @@ class OptPCASLGui(wx.Frame):
 
         hpanel = wx.Panel(self._panel)
         hsizer = wx.BoxSizer(wx.HORIZONTAL)
-        notebook = wx.Notebook(hpanel, id=wx.ID_ANY, style=wx.BK_DEFAULT)
-
-        self._scan_options = ScanOptions(notebook, 0, 1)
-        notebook.AddPage(self._scan_options, "Scan Options")
-
-        self._opt_options = OptimizerOptions(notebook, 0, 1)
-        notebook.AddPage(self._opt_options, "Optimization")
-
-        hsizer.Add(notebook, 1, wx.ALL|wx.EXPAND, 5)
-
-        self._plot = PlotOutputPanel(hpanel)
-        hsizer.Add(self._plot, 1, wx.EXPAND)
         hpanel.SetSizer(hsizer)
         main_vsizer.Add(hpanel, 2, wx.EXPAND)
 
-        run_panel = wx.Panel(self._panel)
-        runsizer = wx.BoxSizer(wx.HORIZONTAL)
-        run_label = wx.StaticText(run_panel, label="")
-        runsizer.Add(run_label, 1, wx.EXPAND)
-        self._run_btn = wx.Button(run_panel, label="Run Optimization")
-        self._run_btn.Bind(wx.EVT_BUTTON, self._dorun)
-        runsizer.Add(self._run_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        run_panel.SetSizer(runsizer)
-        main_vsizer.Add(run_panel, 0, wx.EXPAND)
-        run_panel.Layout()
+        notebook = wx.Notebook(hpanel, id=wx.ID_ANY, style=wx.BK_DEFAULT)
+        hsizer.Add(notebook, 1, wx.ALL|wx.EXPAND, 5)
+        notebook.win = self
+
+        self._protocol = ScanOptions(notebook, 0, 1)
+        notebook.AddPage(self._protocol, "Scan protocol")
+
+        self._phys_params = PhysParamOptions(notebook, 0, 1)
+        notebook.AddPage(self._phys_params, "Physiological parameters")
+
+        self._opt = OptimizerOptions(notebook, 0, 1)
+        notebook.AddPage(self._opt, "Optimization")
+
+        notebook = wx.Notebook(hpanel, id=wx.ID_ANY, style=wx.BK_DEFAULT)
+        hsizer.Add(notebook, 1, wx.ALL|wx.EXPAND, 5)
+        notebook.win = self
+        
+        self._ss = ScanSummary(notebook)
+        notebook.AddPage(self._ss, "Scan summary")
+        
+        self._cbf = CBFSensitivityPlot(notebook)
+        notebook.AddPage(self._cbf, "CBF sensitivity")
+
+        self._att = ATTSensitivityPlot(notebook)
+        notebook.AddPage(self._att, "ATT sensitivity")
+
+        self._curve = KineticCurve(notebook)
+        notebook.AddPage(self._curve, "Kinetic curve")
 
         self._panel.SetSizer(main_vsizer)
         self.Layout()
 
+    def set_scan(self):
+        """
+        """
+        phys_params = self._phys_params.get()
+        kinetic_model = BuxtonPcasl(phys_params)
+        protocol = self._protocol.get(kinetic_model,  self._opt)
+        params = protocol.initial_params()
+        for plot in (self._att, self._curve, self._cbf, self._ss):
+            plot.set(phys_params, protocol, params, None)
+    
+    def optimize(self, niters=1):
+        """
+        """
+        phys_params = self._phys_params.get()
+        kinetic_model = BuxtonPcasl(phys_params)
+        protocol = self._protocol.get(kinetic_model,  self._opt)
+        params = protocol.initial_params()
+        opt = Optimizer(protocol, self._opt.cost_model)
+        output = opt.optimize(params, niters)
+        for plot in (self._att, self._curve, self._cbf, self._ss):
+            plot.set(phys_params, protocol, output["params"], self._opt.cost_model)
+    
     def _dorun(self, _event):
         try:
             self._run_btn.Enable(False)

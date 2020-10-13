@@ -37,9 +37,8 @@ class Protocol(object):
     each parameter, and can calculate the cost of a set of parameters
     """
 
-    def __init__(self, kinetic_model, cost, scan_params, att_dist, pld_lims, ld_lims=None):
+    def __init__(self, kinetic_model, scan_params, att_dist, pld_lims, ld_lims=None):
         self.kinetic_model = kinetic_model
-        self.cost_model = cost
         self.scan_params = scan_params
         self.att_dist = att_dist
         self.pld_lims = pld_lims
@@ -91,12 +90,38 @@ class Protocol(object):
         """
         raise NotImplementedError()
 
-    def cost(self, params):
+    def cost(self, params, cost_model):
         """
         Get the cost for a set of parameters
 
         :param params: Parameter set [NTrials, NParams] or [NParams]
+        :param cost_model: Cost model
         :return Cost [NTrials] or scalar
+        """
+        raise NotImplementedError()
+
+    def hessian(self, params):
+        """
+        Calculate Hessian matrix for ATT and CBF
+
+        :param params: Parameters [NTrials, NParams] or [NParams]
+
+        :return: Hessian matrices of second derivatives wrt cbf
+                 and att [NTrials, NSlices, NATTs, 2, 2] or [NSlices, NATTs, 2, 2]
+        """
+        raise NotImplementedError()
+
+    def cov(self, params):
+        """
+        Calculate covariance matrix for ATT and CBF
+
+        This is the inverse of the Hessian with unit conversion and inf/NaN 
+        protection
+
+        :param params: Parameters [NTrials, NParams] or [NParams]
+
+        :return: Covariance matrix for CBF and ATT in standard units
+                 and att [NTrials, NSlices, NATTs, 2, 2] or [NSlices, NATTs, 2, 2]
         """
         raise NotImplementedError()
 
@@ -204,12 +229,30 @@ class PcaslProtocol(Protocol):
             ret = np.round(np.arange(start, stop+0.001, -self.ld_lims.step), 5)
             return ret
 
-    def cost(self, params):
-        # Hessian matrix for sensitivity of kinetic model [NTrials, NSlices, NATTs, 2, 2]
-        hessian = self._hessian(params)
+    def cov(self, params):
+        hessian = self.hessian(params)
+        det = np.linalg.det(hessian)
+        #print("det", det)
+        cov = np.zeros(hessian.shape)
+        cov[det != 0] = np.linalg.inv(hessian[det != 0])
+        cov[det == 0] = np.inf
+        #print("cov\n", cov)
+        # Correct for inf*0 errors in A*inverse
+        #cov[np.isnan(cov)] = np.inf
+
+        # Change into (ml/100g/min)
+        cov[..., 0, 0] = cov[..., 0, 0] * 6000 * 6000
+        cov[..., 0, 1] = cov[..., 0, 1] * 6000
+        cov[..., 1, 0] = cov[..., 1, 0] * 6000
+
+        return cov
+
+    def cost(self, params, cost_model):
+        # Covariance matrix for sensitivity of kinetic model [NTrials, NSlices, NATTs, 2, 2]
+        cov = self.cov(params)
 
         # Cost at each time point and for each ATT in distribution [NTrials, NSlices, NATTs]
-        cost = self.cost_model.cost(hessian)
+        cost = cost_model.cost(cov)
         #print("cost", cost.shape)
         #print(cost)
 
@@ -230,7 +273,7 @@ class PcaslProtocol(Protocol):
 
     def repeats_total_tr(self, params):
         # Allow for label/control image at each time point
-        lds, plds = self._timings(params)
+        lds, plds = self.timings(params)
         tr = lds + plds + self.scan_params.readout
         total_tr = 2*np.sum(tr, axis=-1)
 
@@ -258,12 +301,13 @@ class PcaslProtocol(Protocol):
                 max_pld -= 0.1
 
             return plds
-        
+
     def _initial_lds(self):
         nld = len(self.scan_params.ld)
         if nld == self.nld:
-           return self.scan_params.ld
+            return self.scan_params.ld
         elif nld == 1 and self.nld > 1:
+            # FIXME use min LD???
             return [self.ld_lims.lb] * self.nld
             # Initial sequence of LDs spaced evenly between upper and lower bound
             factor = 1.0/self.ld_lims.step
@@ -272,7 +316,7 @@ class PcaslProtocol(Protocol):
         else:
             raise ValueError("Invalid number of initial labelling durations passed (%i provided, expected %i" % (nld, self.nld))
 
-    def _timings(self, params):
+    def timings(self, params):
         """
         Get the effective labelling duration and PLDs for a set of trial params
 
@@ -281,18 +325,10 @@ class PcaslProtocol(Protocol):
         """
         raise NotImplementedError()
 
-    def _hessian(self, params):
-        """
-        FIXME noise scaling for TE data
-
-        :param params: Parameters [NTrials, NParams] or [NParams]
-
-        :return: Hessian matrices of second derivatives wrt cbf
-                 and att [NTrials, NSlices, NATTs, 2, 2] or [NSlices, NATTs, 2, 2]
-        """
+    def hessian(self, params):
         # Time points to evaluate the sensitivity of the kinetic model at
         # [NTrials, NPLDs, NSlices]
-        lds, plds = self._timings(params)
+        lds, plds = self.timings(params)
         lds = np.repeat(lds[..., np.newaxis], len(self.slicedt), axis=-1)
         plds = plds[..., np.newaxis]
         slicedt = self.slicedt[np.newaxis, ...]
@@ -343,7 +379,7 @@ class FixedLDPcaslProtocol(PcaslProtocol):
     def __str__(self):
         return "Multi-PLD PCASL protocol with fixed label duration"
 
-    def _timings(self, params):
+    def timings(self, params):
         return np.full(params.shape, self.scan_params.ld[0]), params
 
     def protocol_summary(self, params):
@@ -365,7 +401,7 @@ class MultiPLDPcaslVarLD(PcaslProtocol):
     def __str__(self):
         return "Multi-PLD PCASL protocol with single variable label duration"
 
-    def _timings(self, params):
+    def timings(self, params):
         plds = params[..., :-1]
         lds = np.zeros(plds.shape, dtype=np.float)
         lds[:] = params[..., -1][..., np.newaxis]
@@ -391,7 +427,7 @@ class MultiPLDPcaslMultiLD(PcaslProtocol):
     def __str__(self):
         return "Multi-PLD PCASL protocol with variable label durations (one per PLD)"
 
-    def _timings(self, params):
+    def timings(self, params):
         return params[..., self.scan_params.npld:], params[..., :self.scan_params.npld]
 
     def protocol_summary(self, params):
@@ -422,23 +458,24 @@ class Hadamard(PcaslProtocol):
             total_tr += self.had_size * (np.sum(sub_boli, axis=-1) + pld + self.scan_params.readout)
         return np.floor(self.scan_params.duration/total_tr), np.round(total_tr, 5)
 
-    def cost(self, params):
+    def cost(self, params, cost_model):
         # For comparison with other protocols need to scale
         # cost since each repetition gives self.had_size volumes of information
         # rather than 2 for a label/control acquisition
-        return PcaslProtocol.cost(self, params) / (self.had_size/2)
+        return PcaslProtocol.cost(self, params, cost_model) / (self.had_size/2)
 
     def protocol_summary(self, params):
         plds = params[..., :self.scan_params.npld]
         lds = self._sub_boli(params[self.scan_params.npld:])
         had = scipy.linalg.hadamard(self.had_size)
         ret = []
+        print("had", had)
         for pld in plds:
             for row in had:
-                ret.append(("", lds, row, pld, self.scan_params.readout))
+                ret.append(("", lds, row[1:], pld, self.scan_params.readout))
         return ret
 
-    def _timings(self, params):
+    def timings(self, params):
         plds = params[..., :self.scan_params.npld]
         eff_lds = self._sub_boli(params[..., self.scan_params.npld:])
         eff_lds_full = np.repeat(eff_lds, self.scan_params.npld, axis=-1)
@@ -512,7 +549,7 @@ class HadamardT1Decay(Hadamard):
             first_ld = first_ld[..., np.newaxis]
 
         # Derivation of the following is left as an exercise to the reader...
-        t1b = self.kinetic_model._phys_params.t1b
+        t1b = self.kinetic_model.phys_params.t1b
         t = np.zeros(first_ld.shape)
         tau = np.zeros((first_ld.shape[0], self.had_size-1), dtype=np.float32)
         tau[:, 0] = first_ld
@@ -538,9 +575,17 @@ class HadamardFreeLunch(HadamardT1Decay):
 
     The initial labelling duration is fixed by the scan parameters  
     """
-
     def __str__(self):
         return "Hadamard free-lunch protocol with post-initial sub-boli label durations chosen to equalize overall effect of each sub-bolus given T1 decay"
+
+    def _initial_lds(self):
+        # For free-lunch we deal with special case where two initial LDs are given. The
+        # first is the fixed LD and the second the variable first sub-bolus LD. If only
+        # one is given we use it for both these cases
+        if len(self.scan_params.ld) == 2:
+            return [self.scan_params.ld[1]]
+        else:
+            return PcaslProtocol._initial_lds(self)
 
     def _sub_boli(self, lds, step_size=0.025):
         """
@@ -560,7 +605,7 @@ class HadamardFreeLunch(HadamardT1Decay):
             first_ld = first_ld[..., np.newaxis]
 
         # Derivation of the following is left as an exercise to the reader...
-        t1b = self.kinetic_model._phys_params.t1b
+        t1b = self.kinetic_model.phys_params.t1b
         t = np.zeros(first_ld.shape)
         tau = np.zeros((first_ld.shape[0], self.had_size-1), dtype=np.float32)
         tau[:, 0] = first_ld
@@ -576,7 +621,7 @@ class HadamardFreeLunch(HadamardT1Decay):
         # LD at the start
         tau = np.squeeze(np.round(tau / step_size) * step_size)[..., :-1]
 
-        initial_ld = np.full(tau[..., 0].shape, self.scan_params.ld)[..., np.newaxis]
+        initial_ld = np.full(tau[..., 0].shape, self.scan_params.ld[0])[..., np.newaxis]
         return np.concatenate((initial_ld, tau), axis=-1)
         
 class HadamardMultiLd(Hadamard):
@@ -595,13 +640,3 @@ class HadamardMultiLd(Hadamard):
 
     def _sub_boli(self, lds, step_size=0.025):
         return lds
-
-PROTOCOLS = {
-    "PCASL (fixed LD" : FixedLDPcaslProtocol,
-    "PCASL (variable LD)" : MultiPLDPcaslVarLD,
-    "PCASL (multiple variable LDs)" : MultiPLDPcaslMultiLD,
-    "Hadamard (constant sub-bolus LDs)" : HadamardSingleLd,
-    "Hadamard (T1-decay sub-bolus LDs)" : HadamardT1Decay,
-    "Hadamard (Variable sub-bolus LDs"  : HadamardMultiLd,
-    "Hadamard ('Free lunch')" : HadamardSingleLd,
-}

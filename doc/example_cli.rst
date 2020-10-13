@@ -1,5 +1,5 @@
-Example use of the command line tool
-====================================
+Command line tool user guide
+============================
 
 The command line tool is ``oxasl_optpcasl``. The default arguments optimize for a 6 PLD PCASL
 acquisition::
@@ -62,7 +62,15 @@ Use the command line options ``--optimize=CBF`` or ``--optimize=ATT``::
 Varying the ATT prior distribution
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For example, to restrict the ATT prior to within a more limited range::
+The ATT prior distribution determines the range of arterial transit times
+that are considered relevant when optimizing the performance of the protocol.
+The default range is from 0.2s to 2.3s, with the weighting of the upper and 
+lower 0.3s being linearly tapered to zero.
+
+This is quite a wide range, and in some cases it may be more sensible to 
+restric the ATT prior to a more limited range. For example the following 
+will perform optimization based on ATTs between 1 and 2s, with the range
+1s to 1.1s and the range 1.9s to 2s tapered in weight to zero::
 
     $ oxasl_optpcasl --att-start=1.0 --att-end=2.0 --att-step=0.001 --att-taper=0.1
     OXASL - PCASL Optimizer 0.0.1.post21
@@ -82,7 +90,11 @@ For example, to restrict the ATT prior to within a more limited range::
 Varying the PLD search limits
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This example uses finer search parameters::
+This example uses finer search parameters to determine optimal PLDs. Using
+very fine search limits gives a more accurate result but the optimization
+will take longer. In this example we also increase the search range of PLDs
+up to 5s (although it turns out that such long PLDs are not optimal in this
+case and the largest value returned is 2.08s)::
 
     $ oxasl_optpcasl --pld-min=0.1 --pld-max=5 --pld-step=0.01
     OXASL - PCASL Optimizer 0.0.1.post12
@@ -103,7 +115,8 @@ This example uses finer search parameters::
 Varying other scan properties
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Here we optimize for a longer scan - note that the number of averages (repeats) has increased::
+Here we optimize for a longer scan and modify the readout time (in seconds). 
+Note that the number of averages (repeats) has increased::
 
     $ oxasl_optpcasl --scan-readout=0.75 --scan-duration=500
     OXASL - PCASL Optimizer 0.0.1.post12
