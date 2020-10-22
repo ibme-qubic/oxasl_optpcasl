@@ -345,10 +345,6 @@ class PcaslProtocol(Protocol):
         df, datt = self.kinetic_model.sensitivity(lds.flatten(), times.flatten(), att)
         df = df.reshape(list(times.shape) + [len(att)])
         datt = datt.reshape(list(times.shape) + [len(att)])
-        #print("df, datt", df.shape)
-        #print(df)
-        #print(datt)
-        #print(times)
 
         # Form the Hessian [Trials, Slices, ATTs, 2, 2], summed over PLDs
         # Note Numpy matrix functions batch over leading dimensions
@@ -450,7 +446,7 @@ class Hadamard(PcaslProtocol):
 
     def repeats_total_tr(self, params):
         plds = params[..., :self.scan_params.npld]
-        sub_boli = self._sub_boli(params[..., self.scan_params.npld:])
+        sub_boli = self._sub_boli(params[..., self.scan_params.npld:], self.ld_lims.step)
         total_tr = 0
 
         for pld_idx in range(self.scan_params.npld):
@@ -466,10 +462,9 @@ class Hadamard(PcaslProtocol):
 
     def protocol_summary(self, params):
         plds = params[..., :self.scan_params.npld]
-        lds = self._sub_boli(params[self.scan_params.npld:])
+        lds = self._sub_boli(params[self.scan_params.npld:], self.ld_lims.step)
         had = scipy.linalg.hadamard(self.had_size)
         ret = []
-        print("had", had)
         for pld in plds:
             for row in had:
                 ret.append(("", lds, row[1:], pld, self.scan_params.readout))
@@ -477,8 +472,8 @@ class Hadamard(PcaslProtocol):
 
     def timings(self, params):
         plds = params[..., :self.scan_params.npld]
-        eff_lds = self._sub_boli(params[..., self.scan_params.npld:])
-        eff_lds_full = np.repeat(eff_lds, self.scan_params.npld, axis=-1)
+        eff_lds = self._sub_boli(params[..., self.scan_params.npld:], self.ld_lims.step)
+        eff_lds_full = np.tile(eff_lds, self.scan_params.npld)
         eff_plds_full = np.zeros(eff_lds_full.shape)
         for pld in range(self.scan_params.npld):
             eff_plds_full[..., pld*(self.had_size-1):(pld+1)*(self.had_size-1)] = self._effective_plds(eff_lds, plds[..., pld])
@@ -496,11 +491,8 @@ class Hadamard(PcaslProtocol):
         :param pld: Global PLD [NTrials] or scalar
         :return effective PLD for each sub-bolus [NTrials, NBlocks]
         """
-        #print("lds", lds.shape)
         pld = np.array(pld)[..., np.newaxis]
-        #print("pld", np.array(pld).shape)
         eff_plds = np.repeat(pld, self.had_size-1, axis=-1)
-        #print("effpld", eff_plds.shape)
         eff_plds[..., :-1] += np.cumsum(lds[..., :0:-1], -1)[..., ::-1]
         return eff_plds
 
@@ -562,7 +554,9 @@ class HadamardT1Decay(Hadamard):
             tau[:, idx] = tauv
 
         tau = np.round(tau / step_size) * step_size
-        return np.squeeze(tau)
+        if lds.ndim == 1:
+            tau = np.squeeze(tau)
+        return tau
 
 class HadamardFreeLunch(HadamardT1Decay):
     """
