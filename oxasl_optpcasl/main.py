@@ -107,11 +107,11 @@ def main():
         # Type of optimisation
         # Note: the output cost is not comparable between D-optimal and L-optimal
         if options.optimize == "CBF":
-            cost = CBFCost()
+            cost_model = CBFCost()
         elif options.optimize == "ATT":
-            cost = ATTCost()
+            cost_model = ATTCost()
         else:
-            cost = DOptimalCost()
+            cost_model = DOptimalCost()
 
         # Kinetic model
         kinetic_model = BuxtonPcasl(phys_params)
@@ -121,7 +121,7 @@ def main():
         scantype = get_protocol(options)(kinetic_model, scan_params, att_dist, pld_lims, ld_lims)
 
         # Run the optimisation with optional initial grid search
-        optimizer = Optimizer(scantype, cost)
+        optimizer = Optimizer(scantype, cost_model)
 
         if options.init_gridsearch:
             initial = optimizer.gridsearch(options.init_gridsearch_npts)
@@ -133,7 +133,7 @@ def main():
             print(" - %s: %s" % item)
 
         if options.cost:
-            cost = scantype.cost(initial, self.cost_model)
+            cost = scantype.cost(initial, cost_model)
             rpts, total_tr = scantype.repeats_total_tr(initial)
             print("\nCost: %g" % cost)
             protocol = scantype.protocol_summary(initial)
