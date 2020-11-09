@@ -129,7 +129,6 @@ class TabPage(wx.Panel):
         """
         handler = self._changed_handler(handler)
         ch = wx.Choice(self, choices=choices)
-        ch.SetSelection(initial)
         ch.Bind(wx.EVT_CHOICE, handler)
         if optional:
             cb = wx.CheckBox(self, label=label)
@@ -140,6 +139,7 @@ class TabPage(wx.Panel):
                 self.pack("", cb, ch, enable=initial_on, **kwargs)
         elif pack:
             self.pack(label, ch, **kwargs)
+        ch.SetSelection(initial)
         return ch
 
     def button(self, label, handler=None, **kwargs):
