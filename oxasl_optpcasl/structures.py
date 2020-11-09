@@ -27,9 +27,9 @@ class ScanParams(object):
 
     def __str__(self):
         if self.nslices > 1:
-            return "%is 2D scan with %.2fs label duration, %i slices (time per slice=%.5fs) and readout time %.2fs" % (self.duration, self.ld, self.nslices, self.slicedt, self.readout)
+            return "%is 2D scan with %.3fs label duration, %i slices (time per slice=%.5fs) and readout time %.3fs" % (self.duration, self.ld, self.nslices, self.slicedt, self.readout)
         else:
-            return "%is 3D scan with  %.2fs label duration and readout time %fs" % (self.duration, self.ld, self.readout)
+            return "%is 3D scan with  %.3fs label duration and readout time %.3fs" % (self.duration, self.ld, self.readout)
 
 class PhysParams(object):
     """
@@ -66,7 +66,7 @@ class ATTDist(object):
         self.length = len(self.atts)
 
     def __str__(self):
-        return "ATT distribution: %i values between %.2fs and %fs (weight taper=%.2fs)" % (self.length, self.start, self.end, self.taper)
+        return "ATT distribution: %i values between %.3fs and %.3fs (weight taper=%.3fs)" % (self.length, self.start, self.end, self.taper)
 
 class Limits(object):
     """
@@ -76,4 +76,4 @@ class Limits(object):
         self.lb, self.ub, self.step, self.name = lb, ub, step, name
 
     def __str__(self):
-        return "%ss between %.2fs and %.2fs in steps of %.5fs" % (self.name, self.lb, self.ub, self.step)
+        return "%ss between %.3fs and %.3fs in steps of %.5fs" % (self.name, self.lb, self.ub, self.step)

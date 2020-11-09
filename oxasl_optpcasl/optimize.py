@@ -10,6 +10,9 @@ import numpy as np
 
 from ._version import __version__
 
+def _flist2str(flist):
+    return ",".join(["%.3f" % v for v in flist])
+
 class OptimizationOutput(object):
     """
     Stores the output of the optimization process as attributes
@@ -98,8 +101,8 @@ class Optimizer(object):
                     if diff > tol:
                         finish = False
 
-            self.log.write(" - Iteration %i: best cost: %f params: %s\n" % (iteration, best_cost, best_params))
-
+            self.log.write(" - Iteration %i: best cost: %.5f params: %s\n" % (iteration, best_cost, _flist2str(best_params)))
+            
             if finish:
                 break
 
@@ -116,7 +119,7 @@ class Optimizer(object):
             param_bounds = new_param_bounds
 
         #best_params = sorted(best_params)
-        self.log.write(" - Initializing with parameters: %s\n" % best_params)
+        self.log.write(" - Initializing with parameters: %s\n" % _flist2str(best_params))
         self.log.write("DONE")
         return np.array(best_params)
 
@@ -142,12 +145,12 @@ class Optimizer(object):
         for rep in range(reps):
             self.log.write("Optimization %i/%i... " % (rep+1, reps))
             output = self._optimize_once(initial_params)
-            self.log.write("DONE - Optimized parameters: %s (cost: %f)\n" % (output["params"], output["best_cost"]))
+            self.log.write("DONE - Optimized parameters: %s (cost: %.5f)\n" % (_flist2str(output["params"]), output["best_cost"]))
             if output["best_cost"] < best_cost:
                 best_cost = output["best_cost"]
                 best_output = output
 
-        self.log.write("Final parameters: %s (cost: %f)\n" % (best_output["params"], best_output["best_cost"]))
+        self.log.write("Final parameters: %s (cost: %.5f)\n" % (_flist2str(best_output["params"]), best_output["best_cost"]))
         return best_output
 
     def _optimize_once(self, initial_params, rand_order=True):
