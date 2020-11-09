@@ -16,8 +16,8 @@ from ..scan import *
 
 PROTOCOLS = [
     {
-        "name" : "PCASL",
-        "desc" : "Standard label/control PCASL acquisition (single or multi PLD)"
+        "name" : "Sequential",
+        "desc" : "Standard label/control pCASL acquisition (single or multi PLD)"
     },
     {
         "name" : "Hadamard",
@@ -43,7 +43,6 @@ class ScanOptions(TabPage):
         self._duration = self.number("Maximum scan duration (s)", minval=0, maxval=1000, initial=300)
         self._readout_time = self.number("Readout time (s)", minval=0, maxval=2.0, initial=0.638, digits=3)
         self._readout = self.choice("Readout", choices=["3D (eg GRASE)", "2D multi-slice (eg EPI)"], handler=self._readout_changed)
-        self._readout.SetSelection(0)
 
         self._nslices = self.integer("Number of slices", minval=1, maxval=100, initial=10)
         self._slicedt = self.number("Time per slice (ms)", minval=0, maxval=50, step=1, initial=10)
