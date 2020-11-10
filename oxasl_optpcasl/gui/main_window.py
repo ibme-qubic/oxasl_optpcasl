@@ -9,15 +9,16 @@ import os
 import sys
 
 import wx
+from wx.lib.pubsub import pub
 
 from .scan_options import ScanOptions
 from .phys_params import PhysParamOptions
 from .optimizer_options import OptimizerOptions
 from .scan_summary import ScanSummary
 from .sensitivity_plot import CBFSensitivityPlot, ATTSensitivityPlot, KineticCurve
+from .runner import OptimizationRunner
 
 from ..kinetic_model import BuxtonPcasl
-from ..optimize import Optimizer
 
 class OptPCASLGui(wx.Frame):
     """
@@ -92,6 +93,9 @@ class OptPCASLGui(wx.Frame):
         self._curve = KineticCurve(notebook)
         notebook.AddPage(self._curve, "Kinetic curve")
 
+        self._runner = OptimizationRunner(self)
+        pub.subscribe(self._opt_finished, "opt_finished")
+
         self._panel.SetSizer(main_vsizer)
         self.Layout()
 
@@ -112,33 +116,15 @@ class OptPCASLGui(wx.Frame):
         kinetic_model = BuxtonPcasl(phys_params)
         protocol = self._protocol.get(kinetic_model,  self.opt)
         params = protocol.initial_params()
-        opt = Optimizer(protocol, self.opt.cost_model)
-        output = opt.optimize(params, niters)
-        for plot in (self._att, self._curve, self._cbf, self._ss):
-            plot.set(phys_params, protocol, output["params"], self.opt.cost_model)
-    
-    def _dorun(self, _event):
-        try:
-            self._run_btn.Enable(False)
-            self._panel.SetCursor(wx.Cursor(wx.CURSOR_WAIT))
-            wx.Yield()
-            params = self._scan_options.aslparams()
-            scan = self._scan_options.scan()
-            att_dist = self._opt_options.attdist()
-            lims = self._opt_options.pldlimits()
-            optimizer = self._opt_options.optimizer(params, scan, att_dist, lims)
-            
-            # Run the optimisation and display outcome
-            output = optimizer.optimize()
-            self._plot.set_optimized_scan(params, scan, output)
-            
-        except (RuntimeError, ValueError) as exc:
-            sys.stderr.write("ERROR: %s\n" % str(exc))
-            import traceback
-            traceback.print_exc()
-        finally:
-            self._run_btn.Enable(True)
-            self._panel.SetCursor(wx.Cursor(wx.CURSOR_ARROW))
+        self._runner.run(protocol, self.opt.cost_model, initial_params=params, reps=niters)
+
+    def _opt_finished(self, output):
+        if output is not None:
+            phys_params = self._phys_params.get()
+            kinetic_model = BuxtonPcasl(phys_params)
+            protocol = self._protocol.get(kinetic_model,  self.opt)
+            for plot in (self._att, self._curve, self._cbf, self._ss):
+                plot.set(phys_params, protocol, output["params"], self.opt.cost_model)
 
 def main():
     """

@@ -39,6 +39,7 @@ class Optimizer(object):
         self.log = log
         self.scantype = scantype
         self.cost_model = cost_model
+        self.cancel = False
 
     def gridsearch(self, gridpts=1e6):
         """
@@ -131,6 +132,7 @@ class Optimizer(object):
 
         :return: Mapping from key to output value, e.g. keys include 'best_cost', 'params'
         """
+        self.cancel = False
         self.log.write("Optimizing PLDs for: %s\n" % self.scantype)
         self.log.write("PLD search limits: %s\n" % self.scantype.pld_lims)
         self.log.write("Optimizing for %i PLDs\n" % self.scantype.scan_params.npld)
@@ -146,6 +148,8 @@ class Optimizer(object):
             if output["best_cost"] < best_cost:
                 best_cost = output["best_cost"]
                 best_output = output
+            if self.cancel:
+                raise RuntimeError("Optimization was cancelled")
 
         self.log.write("Final parameters: %s (cost: %.5f)\n" % (self._params2str(best_output["params"]), best_output["best_cost"]))
         return best_output
