@@ -49,10 +49,10 @@ class ScanOptions(TabPage):
         self._slicedt = self.number("Time per slice (ms)", minval=0, maxval=50, step=1, initial=10)
 
         self._nplds = self.integer("Number of PLDs", minval=1, maxval=20, initial=1, handler=self._nplds_changed)
-        self._plds = self.number_list("Initial PLDs (s)", minval=0.1, maxval=3.0, initial=[2.0], handler=self._plds_changed)
+        self._plds = self.number_list("Initial PLDs (s)", digits=3, minval=0.1, maxval=3.0, initial=[2.0], handler=self._plds_changed)
 
         self._ld = self.choice("Label duration", choices=["Fixed", "Single variable", "Multiple variable (one per PLD)"], handler=self._ld_changed)
-        self._lds = self.number_list("Initial label durations (s)", minval=0.1, maxval=3.0, initial=[1.8], handler=self._lds_changed)
+        self._lds = self.number_list("Initial label durations (s)", digits=3, minval=0.1, maxval=3.0, initial=[1.8], handler=self._lds_changed)
         
         self._had_label = self.section("Time encoding")
         self._had_size = self.choice("Hadamard matrix size", choices=["4", "8", "12"], initial=1)
@@ -64,10 +64,14 @@ class ScanOptions(TabPage):
 
         self.next_prev()
         self.sizer.AddGrowableCol(1)
-        self._readout_changed()
-        self._protocol_changed()
-        self._ld_changed()
-        self._had_ld_changed()
+        self.notebook.Bind(wx.EVT_SHOW, self._on_show)
+
+    def _on_show(self, event):
+        if event.IsShown():
+            self._readout_changed()
+            self._protocol_changed()
+            self._ld_changed()
+            self._had_ld_changed()
 
     def _readout_changed(self, _event=None):
         self._nslices.Enable(self._readout.GetSelection() == 1)
@@ -131,9 +135,9 @@ class ScanOptions(TabPage):
         p = self._scan_class()(
             BuxtonPcasl(PhysParams()),
             ScanParams(self._duration.GetValue(), self._nplds.GetValue()), 
-            ATTDist(),
-            Limits(0.1, 2.3, 0.025),  
-            Limits(0.1, 2.3, 0.025)
+            self.notebook.win.opt.att_dist,
+            self.notebook.win.opt.pld_lims,
+            self.notebook.win.opt.ld_lims
         )
         params = p.name_params(p.initial_params())
         if plds and "plds" in params:

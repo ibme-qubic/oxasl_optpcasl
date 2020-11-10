@@ -73,8 +73,8 @@ class OptPCASLGui(wx.Frame):
         self._phys_params = PhysParamOptions(notebook, 0, 1)
         notebook.AddPage(self._phys_params, "Physiological parameters")
 
-        self._opt = OptimizerOptions(notebook, 0, 1)
-        notebook.AddPage(self._opt, "Optimization")
+        self.opt = OptimizerOptions(notebook, 0, 1)
+        notebook.AddPage(self.opt, "Optimization")
 
         notebook = wx.Notebook(hpanel, id=wx.ID_ANY, style=wx.BK_DEFAULT)
         hsizer.Add(notebook, 1, wx.ALL|wx.EXPAND, 5)
@@ -100,7 +100,7 @@ class OptPCASLGui(wx.Frame):
         """
         phys_params = self._phys_params.get()
         kinetic_model = BuxtonPcasl(phys_params)
-        protocol = self._protocol.get(kinetic_model,  self._opt)
+        protocol = self._protocol.get(kinetic_model,  self.opt)
         params = protocol.initial_params()
         for plot in (self._att, self._curve, self._cbf, self._ss):
             plot.set(phys_params, protocol, params, None)
@@ -110,12 +110,12 @@ class OptPCASLGui(wx.Frame):
         """
         phys_params = self._phys_params.get()
         kinetic_model = BuxtonPcasl(phys_params)
-        protocol = self._protocol.get(kinetic_model,  self._opt)
+        protocol = self._protocol.get(kinetic_model,  self.opt)
         params = protocol.initial_params()
-        opt = Optimizer(protocol, self._opt.cost_model)
+        opt = Optimizer(protocol, self.opt.cost_model)
         output = opt.optimize(params, niters)
         for plot in (self._att, self._curve, self._cbf, self._ss):
-            plot.set(phys_params, protocol, output["params"], self._opt.cost_model)
+            plot.set(phys_params, protocol, output["params"], self.opt.cost_model)
     
     def _dorun(self, _event):
         try:
