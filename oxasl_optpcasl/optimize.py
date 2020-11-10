@@ -50,6 +50,7 @@ class Optimizer(object):
 
         :param gridpts: Approximate number of grid points to allow (in total)
         """
+        self.cancel = False
         self.log.write("Doing initial grid search for best parameters\n")
         param_bounds = self.scantype.param_bounds()
         nparams = len(param_bounds)
@@ -98,6 +99,8 @@ class Optimizer(object):
                     best_cost = min_cost
                     if diff > tol:
                         finish = False
+                if self.cancel:
+                    raise RuntimeError("Grid search was cancelled")
 
             self.log.write(" - Iteration %i: best cost: %.5f params: %s\n" % (iteration, best_cost, self._params2str(best_params)))
             
