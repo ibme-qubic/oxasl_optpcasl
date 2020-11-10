@@ -89,7 +89,7 @@ def main():
         if options.scan_lds is not None:
             options.scan_lds = np.array([float(v) for v in options.scan_lds.split(",")])
         else:
-            options.scan_lds = [1.4]
+            options.scan_lds = [1.8]
 
         scan_params = ScanParams(duration=options.scan_duration,
                                  npld=options.scan_npld,
