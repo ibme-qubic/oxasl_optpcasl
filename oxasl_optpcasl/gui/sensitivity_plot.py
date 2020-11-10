@@ -5,6 +5,7 @@ Copyright (c) 2019 University of Oxford
 import numpy as np
 
 import wx
+import wx.lib.scrolledpanel as spanel
 
 import matplotlib
 matplotlib.use('WXAgg')
@@ -26,11 +27,16 @@ class SensitivityPlot(wx.Panel):
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(sizer)
 
+        self._spanel = spanel.ScrolledPanel(self, -1)
+        spanel_sizer = wx.BoxSizer(wx.VERTICAL)
+        self._spanel.SetSizer(spanel_sizer)
         self._figure = Figure(figsize=(3.5, 3.5), dpi=100, facecolor='white')
-        self._canvas = FigureCanvas(self, -1, self._figure)
-        sizer.Add(self._canvas, 2, border=5, flag=wx.EXPAND | wx.ALL)
+        self._canvas = FigureCanvas(self._spanel, -1, self._figure)
+        spanel_sizer.Add(self._canvas, 2, border=5, flag=wx.EXPAND | wx.ALL)
 
+        sizer.Add(self._spanel, 2, border=5, flag=wx.EXPAND | wx.ALL)
         self.Layout()
+        self._spanel.SetupScrolling()
 
     def set(self, phys_params, scan, params, cost_model):
         self._phys_params = phys_params
@@ -80,6 +86,7 @@ class KineticCurve(SensitivityPlot):
         self._att_num = NumberChooser(self, label="ATT", minval=0.3, maxval=2.5, initial=1.3, changed_handler=self._att_changed)
         self.GetSizer().Add(self._att_num, border=5, flag=wx.EXPAND | wx.ALL)
         self.Layout()
+        _w, self._initial_height = self._figure.get_size_inches()
 
         self._model = model
         self._att = 1.3
@@ -90,12 +97,20 @@ class KineticCurve(SensitivityPlot):
         ld = self._paramdict.get("lds", [self._scan.scan_params.ld])[0]
 
         lds, plds = self._scan.timings(self._params)
-        multi_ld = np.min(lds) != np.max(lds)
-        rows = np.ceil(np.sqrt(len(lds)))
-        cols = np.ceil(len(lds) / rows)
+        unique_lds = np.unique(lds)
+        multi_ld = len(unique_lds) > 1
+
+        if multi_ld:
+            cols = 2
+            rows = np.ceil(len(lds) / cols)
+        else:
+            cols, rows = 1, 1
         idx = 1
         plot_axes = None
 
+        w, h = self._figure.get_size_inches()
+        self._figure.set_size_inches(w, self._initial_height/2*max(2, rows))
+        self._canvas.SetMinSize(wx.Size(1, 200*max(2, rows)))
         for ld, pld in zip(lds, plds):
             if multi_ld:
                 plot_axes = self._figure.add_subplot(rows, cols, idx)
@@ -113,7 +128,10 @@ class KineticCurve(SensitivityPlot):
                 plot_axes.set_xlabel("Time (s)")
 
             plot_axes.axvline(pld+ld, linestyle='--', color='green')
+
         self._figure.tight_layout()
+        self.Layout()
+        self._spanel.SetupScrolling()
 
     def _att_changed(self, _event=None):
         self._att = self._att_num.GetValue()
