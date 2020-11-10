@@ -26,7 +26,7 @@ class OptPCASLGui(wx.Frame):
     """
 
     def __init__(self):
-        wx.Frame.__init__(self, None, title="OXASL PCASL Optimizer", size=(1100, 700), style=wx.DEFAULT_FRAME_STYLE)
+        wx.Frame.__init__(self, None, title="OXASL PCASL Optimizer", size=(1280, 700), style=wx.DEFAULT_FRAME_STYLE)
         self._panel = wx.Panel(self)
 
         local_dir = os.path.abspath(os.path.dirname(__file__))
@@ -116,7 +116,7 @@ class OptPCASLGui(wx.Frame):
         kinetic_model = BuxtonPcasl(phys_params)
         protocol = self._protocol.get(kinetic_model,  self.opt)
         params = protocol.initial_params()
-        self._runner.run(protocol, self.opt.cost_model, initial_params=params, reps=niters)
+        self._runner.run(protocol, self.opt.cost_model, initial_params=params, reps=niters, gridpts=self.opt.gridpts)
 
     def _opt_finished(self, output):
         if output is not None:

@@ -172,7 +172,7 @@ class TabPage(wx.Panel):
         self.pack(label, num, **kwargs)
         return num
 
-    def integer(self, label, handler=None, pack=True, minval=1, maxval=100, **kwargs):
+    def integer(self, label, handler=None, pack=True, minval=1, maxval=100, optional=False, initial_on=False, **kwargs):
         """
         Add a widget to choose an integer
         """
@@ -180,8 +180,17 @@ class TabPage(wx.Panel):
         spin = wx.SpinCtrl(self, min=minval, max=maxval, **kwargs)
         spin.SetValue(kwargs.get("initial", 0))
         spin.Bind(wx.EVT_SPINCTRL, handler)
-        if pack:
+
+        if optional:
+            cb = wx.CheckBox(self, label=label)
+            cb.SetValue(initial_on)
+            cb.Bind(wx.EVT_CHECKBOX, handler)
+            spin.checkbox = cb
+            if pack:
+                self.pack("", cb, spin, enable=initial_on)
+        elif pack:
             self.pack(label, spin)
+
         return spin
 
     def checkbox(self, label, initial=False, handler=None, **kwargs):

@@ -77,6 +77,8 @@ class OptimizationThread(Thread):
     def run(self):
         output = None
         try:
+            if self.kwargs.get("gridpts", None) is not None:
+                self.kwargs["initial_params"] = self.optimizer.gridsearch(self.kwargs.pop("gridpts"))
             output = self.optimizer.optimize(**self.kwargs)
         except Exception as exc:
             print(exc)
