@@ -363,6 +363,12 @@ class PcaslProtocol(Protocol):
         hess[..., 1, 1] = num_repeats * np.sum(datt*datt, axis=pld_idx)
         return hess
 
+    def all_lds(self, lds, step_size=0.025):
+        """
+        Return the full set of LDs given the LD parameter(s)
+        """
+        return lds
+
 class FixedLDPcaslProtocol(PcaslProtocol):
     """
     PCASL protocol with a single fixed labelling duration
@@ -446,7 +452,7 @@ class Hadamard(PcaslProtocol):
 
     def repeats_total_tr(self, params):
         plds = params[..., :self.scan_params.npld]
-        sub_boli = self._sub_boli(params[..., self.scan_params.npld:], self.ld_lims.step)
+        sub_boli = self.all_lds(params[..., self.scan_params.npld:], self.ld_lims.step)
         total_tr = 0
 
         for pld_idx in range(self.scan_params.npld):
@@ -462,7 +468,7 @@ class Hadamard(PcaslProtocol):
 
     def protocol_summary(self, params):
         plds = params[..., :self.scan_params.npld]
-        lds = self._sub_boli(params[self.scan_params.npld:], self.ld_lims.step)
+        lds = self.all_lds(params[self.scan_params.npld:], self.ld_lims.step)
         had = scipy.linalg.hadamard(self.had_size)
         ret = []
         for pld in plds:
@@ -472,7 +478,7 @@ class Hadamard(PcaslProtocol):
 
     def timings(self, params):
         plds = params[..., :self.scan_params.npld]
-        eff_lds = self._sub_boli(params[..., self.scan_params.npld:], self.ld_lims.step)
+        eff_lds = self.all_lds(params[..., self.scan_params.npld:], self.ld_lims.step)
         eff_lds_full = np.tile(eff_lds, self.scan_params.npld)
         eff_plds_full = np.zeros(eff_lds_full.shape)
         for pld in range(self.scan_params.npld):
@@ -496,9 +502,6 @@ class Hadamard(PcaslProtocol):
         eff_plds[..., :-1] += np.cumsum(lds[..., :0:-1], -1)[..., ::-1]
         return eff_plds
 
-    def _sub_boli(self, ld, step_size=0.025):
-        raise NotImplementedError()
-
 class HadamardSingleLd(Hadamard):
     """
     Hadamard time-encoded protocol with single (variable) LD and single (variable) PLD
@@ -509,7 +512,7 @@ class HadamardSingleLd(Hadamard):
     def __str__(self):
         return "Hadamard time-encoded protocol with equal sub-boli label durations and single PLD"
 
-    def _sub_boli(self, ld, step_size=0.025):
+    def all_lds(self, ld, step_size=0.025):
         return np.repeat(ld, self.had_size-1, axis=-1)
 
 class HadamardT1Decay(Hadamard):
@@ -523,7 +526,7 @@ class HadamardT1Decay(Hadamard):
     def __str__(self):
         return "Hadamard time-encoded protocol with sub-boli label durations chosen to equalize overall effect of each sub-bolus given T1 decay"
 
-    def _sub_boli(self, lds, step_size=0.025):
+    def all_lds(self, lds, step_size=0.025):
         """
         Generate optimal sub-bolus durations given the length of the first
         sub-bolus.
@@ -581,7 +584,7 @@ class HadamardFreeLunch(HadamardT1Decay):
         else:
             return PcaslProtocol._initial_lds(self)
 
-    def _sub_boli(self, lds, step_size=0.025):
+    def all_lds(self, lds, step_size=0.025):
         """
         Generate optimal sub-bolus durations given the length of the first
         sub-bolus.
@@ -631,6 +634,3 @@ class HadamardMultiLd(Hadamard):
 
     def __str__(self):
         return "Hadamard time-encoded protocol with multiple variable sub-boli label durations and single PLD"
-
-    def _sub_boli(self, lds, step_size=0.025):
-        return lds

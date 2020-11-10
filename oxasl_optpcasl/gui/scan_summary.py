@@ -36,7 +36,7 @@ class ScanSummary(wx.Panel):
         plds_panel.SetSizer(plds_sizer)
         sizer.Add(plds_panel, 0, wx.EXPAND)
 
-        monospace_font = wx.Font(8, wx.FONTFAMILY_TELETYPE, wx.NORMAL, wx.NORMAL, False)
+        monospace_font = wx.Font(10, wx.FONTFAMILY_TELETYPE, wx.NORMAL, wx.NORMAL, False)
         bold_font = wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, False)
         label = wx.StaticText(plds_panel, label="PLDs (s)")
         plds_sizer.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
@@ -140,7 +140,8 @@ class ScanSummary(wx.Panel):
             paramdict = self._scan.name_params(self._params)
             rpts, tr = self._scan.repeats_total_tr(params)
             self._plds_text.AppendText(" ".join(["%.3g" % pld for pld in paramdict.get("plds", [])]))
-            self._lds_text.AppendText(" ".join(["%.3g" % ld for ld in paramdict.get("lds", self._scan.scan_params.ld)]))
+            lds = self._scan.all_lds(paramdict.get("lds", self._scan.scan_params.ld))
+            self._lds_text.AppendText(" ".join(["%.3g" % ld for ld in lds]))
             self._tr_text.AppendText("%.3g" % tr)
             self._rpts_text.AppendText(str(int(rpts)))
             self._scantime_text.AppendText("%.1f" % (tr * rpts))
