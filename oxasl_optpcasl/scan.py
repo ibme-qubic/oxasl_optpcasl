@@ -217,15 +217,9 @@ class PcaslProtocol(Protocol):
 
             return np.round(np.arange(start, stop+0.001, self.pld_lims.step), 5)
         else:
-            # We are varying a labelling duration. Generate values between the previous and following LDs
-            # to keep them in decreasing order.For the first and last LDs we use the upper/lower 
-            # bounds instead of the previous/next LD.
+            # We are varying a labelling duration. Generate values between upper and lower bounds
+            # since LDs shouldn't be kept in any particular order
             start, stop = self.ld_lims.ub, self.ld_lims.lb
-            if idx > self.scan_params.npld:
-                start = params[idx-1]
-            if idx < self.scan_params.npld + self.nld - 1:
-                stop = params[idx+1]
-
             ret = np.round(np.arange(start, stop+0.001, -self.ld_lims.step), 5)
             return ret
 
@@ -307,12 +301,8 @@ class PcaslProtocol(Protocol):
         if nld == self.nld:
             return self.scan_params.ld
         elif nld == 1 and self.nld > 1:
-            # FIXME use min LD???
-            return [self.ld_lims.lb] * self.nld
-            # Initial sequence of LDs spaced evenly between upper and lower bound
-            factor = 1.0/self.ld_lims.step
-            lds = np.linspace(self.ld_lims.ub, self.ld_lims.lb, self.nld)
-            return np.round(lds*factor) / factor
+            # Initial LD is 1.8s unless upper bound is below this
+            return [min(self.ld_lims.ub, 1.8)] * self.nld
         else:
             raise ValueError("Invalid number of initial labelling durations passed (%i provided, expected %i" % (nld, self.nld))
 
