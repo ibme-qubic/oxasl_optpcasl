@@ -64,7 +64,7 @@ class ScanOptions(TabPage):
 
         self.next_prev()
         self.sizer.AddGrowableCol(1)
-        self.notebook.Bind(wx.EVT_SHOW, self._on_show)
+        self.notebook.win.Bind(wx.EVT_SHOW, self._on_show)
 
     def _on_show(self, event):
         if event.IsShown():
