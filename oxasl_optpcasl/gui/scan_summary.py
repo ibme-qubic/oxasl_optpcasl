@@ -139,15 +139,15 @@ class ScanSummary(wx.Panel):
         if self._params is not None:
             paramdict = self._scan.name_params(self._params)
             rpts, tr = self._scan.repeats_total_tr(params)
-            self._plds_text.AppendText(" ".join(["%.3g" % pld for pld in paramdict.get("plds", [])]))
+            self._plds_text.AppendText(" ".join(["%.3f" % pld for pld in paramdict.get("plds", [])]))
             lds = self._scan.all_lds(paramdict.get("lds", self._scan.scan_params.ld))
-            self._lds_text.AppendText(" ".join(["%.3g" % ld for ld in lds]))
-            self._tr_text.AppendText("%.3g" % tr)
+            self._lds_text.AppendText(" ".join(["%.3f" % ld for ld in lds]))
+            self._tr_text.AppendText("%.3f" % tr)
             self._rpts_text.AppendText(str(int(rpts)))
             self._scantime_text.AppendText("%.1f" % (tr * rpts))
-            self._cost_cbf.AppendText("%.3g" % self._scan.cost(self._params, self._cost_model_cbf))
-            self._cost_att.AppendText("%.3g" % self._scan.cost(self._params, self._cost_model_att))
-            self._cost_comb.AppendText("%.3g" % self._scan.cost(self._params, self._cost_model_comb))
+            self._cost_cbf.AppendText("%.3f" % self._scan.cost(self._params, self._cost_model_cbf))
+            self._cost_att.AppendText("%.3f" % self._scan.cost(self._params, self._cost_model_att))
+            self._cost_comb.AppendText("%.3f" % self._scan.cost(self._params, self._cost_model_comb))
 
             desc = self._scan.protocol_summary(params)
             self._vis._summary = desc
