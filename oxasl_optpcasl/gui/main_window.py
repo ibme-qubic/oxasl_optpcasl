@@ -119,6 +119,7 @@ class OptPCASLGui(wx.Frame):
         self._runner.run(protocol, self.opt.cost_model, initial_params=params, reps=niters, gridpts=self.opt.gridpts)
 
     def _opt_finished(self, output):
+        self.opt._set_btn.Enable()
         if output is not None:
             phys_params = self._phys_params.get()
             kinetic_model = BuxtonPcasl(phys_params)

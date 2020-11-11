@@ -83,4 +83,5 @@ class OptimizerOptions(TabPage):
             self._ngridpoints.Disable()
 
     def _optimize(self, _event=None):
+        self._set_btn.Disable()
         self.notebook.win.optimize(self._niters.GetValue())
