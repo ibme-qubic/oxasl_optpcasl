@@ -40,7 +40,7 @@ class ScanOptions(TabPage):
 
         self.section("Scan parameters")
         self._protocol = self.choice("Scan protocol", choices=[p["name"] for p in PROTOCOLS], handler=self._protocol_changed)
-        self._noise = self.number("Additive noise std.dev. relative to M0", digits=4, minval=0, maxval=0.1, initial=0.002)
+        self._noise = self.number("Additive noise std.dev. relative to M0", digits=4, minval=0, maxval=0.1, initial=0.0013)
         self._duration = self.number("Maximum scan duration (s)", minval=0, maxval=1000, initial=300)
         self._readout_time = self.number("Readout time (s)", minval=0, maxval=2.0, initial=0.638, digits=3)
         self._readout = self.choice("Readout", choices=["3D (eg GRASE)", "2D multi-slice (eg EPI)"], handler=self._readout_changed)
