@@ -1,3 +1,7 @@
 *.pyc
 _version.py
 doc/html
+.DS_Store
+*.egg-info
+build
+dist
