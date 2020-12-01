@@ -13,13 +13,15 @@ from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 from .widgets import NumberChooser
+from .scan_summary import ReportWxScreenshot
 from ..kinetic_model import BuxtonPcasl
 
 class SensitivityPlot(wx.Panel):
     """
     Displays plots illustrating the optimized protocol
     """
-    def __init__(self, parent):
+    def __init__(self, parent, title):
+        self.title = title
         self._params = None
         self._phys_params = None
 
@@ -54,8 +56,16 @@ class SensitivityPlot(wx.Panel):
         self._canvas.draw()
         self._canvas.Refresh()
 
+    def add_to_report(self, report):
+        report.heading(self.title)
+        img = ReportMatplotlibFigure(self._figure)
+        report.image(type(self).__name__.replace(" ", "_").lower(), img)
+
 class CBFSensitivityPlot(SensitivityPlot):
     
+    def __init__(self, parent):
+        SensitivityPlot.__init__(self, parent, "CBF sensitivity")
+
     def _update_plot(self, _evt=None):
         cov = self._scan.cov(self._params)
         cbf_var = np.squeeze(np.mean(np.sqrt(np.abs(cov[..., 0, 0])), axis=0))
@@ -68,6 +78,9 @@ class CBFSensitivityPlot(SensitivityPlot):
 
 class ATTSensitivityPlot(SensitivityPlot):
     
+    def __init__(self, parent):
+        SensitivityPlot.__init__(self, parent, "ATT sensitivity")
+
     def _update_plot(self, _evt=None):
         cov = self._scan.cov(self._params)
         att_var = np.squeeze(np.mean(np.sqrt(np.abs(cov[..., 1, 1])), axis=0))
@@ -81,8 +94,8 @@ class ATTSensitivityPlot(SensitivityPlot):
 class KineticCurve(SensitivityPlot):
     
     def __init__(self, parent, model=BuxtonPcasl):
-        SensitivityPlot.__init__(self, parent)
-        
+        SensitivityPlot.__init__(self, parent, "Kinetic curve")
+
         self._att_num = NumberChooser(self, label="ATT", minval=0.3, maxval=2.5, initial=1.3, changed_handler=self._att_changed)
         self.GetSizer().Add(self._att_num, border=5, flag=wx.EXPAND | wx.ALL)
         self.Layout()
@@ -136,3 +149,20 @@ class KineticCurve(SensitivityPlot):
     def _att_changed(self, _event=None):
         self._att = self._att_num.GetValue()
         self._refresh_plot()
+
+class ReportMatplotlibFigure(object):
+    """
+    Embeds a Matplotlib figure screenshot into a report as a PNG image
+    """
+
+    def __init__(self, figure):
+        """
+        """
+        self._figure = figure
+        self.extension = ".png"
+
+    def tofile(self, fname):
+        """
+        Write image to a file
+        """
+        self._figure.savefig(fname)

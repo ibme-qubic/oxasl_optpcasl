@@ -3,6 +3,7 @@ OXASL_OPTPCASL: Widget that displays summary of the scan protocol
 
 Copyright (c) 2019 University of Oxford
 """
+import sys
 import numpy as np
 
 import wx
@@ -13,6 +14,7 @@ from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 from ..cost import CBFCost, ATTCost, DOptimalCost
+
 class ScanSummary(wx.Panel):
     """
     Displays plots illustrating the optimized protocol
@@ -23,6 +25,7 @@ class ScanSummary(wx.Panel):
         self._cost_model_cbf = CBFCost()
         self._cost_model_att = ATTCost()
         self._cost_model_comb = DOptimalCost()
+        self._notebook = parent
 
         wx.Panel.__init__(self, parent, size=wx.Size(300, 600))
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -110,6 +113,15 @@ class ScanSummary(wx.Panel):
         self._cost_comb.SetFont(monospace_font)
         cost_sizer.Add(self._cost_comb, 2, wx.ALL, 5)
         
+        report_panel = wx.Panel(self)
+        report_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        report_panel.SetSizer(report_sizer)
+        sizer.Add(report_panel, 0, wx.EXPAND)
+
+        report_btn = wx.Button(report_panel, label="Generate report")
+        report_sizer.Add(report_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        report_btn.Bind(wx.EVT_BUTTON, self._generate_report)
+
         self.Layout()
 
     def set(self, phys_params, scan, params, cost_model):
@@ -153,6 +165,72 @@ class ScanSummary(wx.Panel):
             self._vis._summary = desc
             self._vis.Refresh()
         self.Layout()
+
+    def _generate_report(self, _evt):
+        with wx.FileDialog(self, "Save protocol report", style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as dialog:
+            if dialog.ShowModal() != wx.ID_CANCEL:
+                report_path = dialog.GetPath()
+                self._notebook.win.generate_report(report_path)
+
+    def add_to_report(self, report):
+        report.heading("Scan summary")
+
+        img = ReportWxScreenshot(self._vis)
+        report.image("scan_summary", img)
+
+        scantype = type(self._scan).__name__
+        if scantype == "HadamardFreeLunch":
+            scan_name = "Free lunch"
+        elif scantype.startswith("Hadamard"):
+            scan_name = "Hadamard"
+        else:
+            scan_name = "Sequential"
+
+        if self._scan.scan_params.slicedt == 0:
+            readout = "3D"
+        else:
+            readout = "2D (%i slices, %.3f s per slice)" % (self._scan.scan_params.nslices, self._scan.scan_params.slicedt)
+
+        tabdata = [
+            ("Scan type", scan_name),
+            ("PLDs", self._plds_text.GetLineText(0)),
+            ("LDs", self._lds_text.GetLineText(0)),
+            ("Readout", readout),
+            ("Readout time", "%.4f s" % self._scan.scan_params.readout),
+            ("TR", self._tr_text.GetLineText(0)),
+            ("Repeats", self._rpts_text.GetLineText(0)),
+            ("Total scan time", self._scantime_text.GetLineText(0)),
+            ("Relative noise std.dev.", "%.5f" % self._scan.scan_params.noise),
+            ("CBF cost", self._cost_cbf.GetLineText(0)),
+            ("ATT cost", self._cost_att.GetLineText(0)),
+            ("Combined CBF/ATT cost", self._cost_comb.GetLineText(0)),
+        ]
+        report.table(tabdata, align="left")
+
+        opt = ""
+        if self._cbf_opt_label.GetLabel():
+            opt = "CBF"
+        elif self._att_opt_label.GetLabel():
+            opt = "ATT"
+        elif self._comb_opt_label.GetLabel():
+            opt = "CBF and ATT"
+
+        if opt:
+            report.heading("Optimization")
+            report.text("Protocol optimized for %s measurements" % opt)
+            report.text(str(self._scan.att_dist))
+            report.text(str(self._scan.pld_lims))
+            report.text(str(self._scan.ld_lims))
+
+        report.heading("Physiological parameters used")
+        phys_params_tabdata = [
+            ("Blood T1", "%.3f s" % self._phys_params.t1b),
+            ("Tissue T1", "%.3f s" % self._phys_params.t1t),
+            ("Inversion efficiency", "%.3f" % self._phys_params.alpha),
+            ("Partition coefficient", "%.3f" % self._phys_params.lam),
+            ("Reference CBF value", "%.3f mg/100ml/min" % (self._phys_params.f * 6000)),
+        ]
+        report.table(phys_params_tabdata, align="left")
 
 class ScanVisualisation(wx.Panel):
     """
@@ -252,7 +330,77 @@ class ScanVisualisation(wx.Panel):
         dc.SetBrush(wx.Brush(wx.TheColourDatabase.Find("RED"), wx.SOLID))
         dc.DrawRectangle(*rect.Get())
         dc.DrawText("Readout", x + 45, y)
+        y += row_height
+
+        # For screenshot it is useful to know the maximum x and y extents of the drawing
+        self.contents_height = y
+        self.contents_width = row_width
         
     def _centered_text(self, dc, text, x, y):
         text_size = dc.GetTextExtent(text)
         dc.DrawText(text, x-text_size.x/2, y-text_size.y/2)
+
+class ReportWxScreenshot(object):
+    """
+    Embeds a WX panel screenshot into a report as a PNG image
+    """
+
+    def __init__(self, panel):
+        """
+        Takes a screenshot of a panel
+
+        Adapted from http://aspn.activestate.com/ASPN/Mail/Message/wxpython-users/3575899
+        created by Andrea Gavana
+        """
+        rect = panel.GetRect()
+        width, height = rect.width, rect.height
+        if hasattr(panel, "contents_width"):
+            width = panel.contents_width
+        if hasattr(panel, "contents_height"):
+            height = panel.contents_height
+
+        # adjust widths for Linux (figured out by John Torres
+        # http://article.gmane.org/gmane.comp.python.wxpython/67327)
+        # FIXME MSC I have not tested this on Linux and note we are not
+        # using rect for the screenshot extent any more
+        if sys.platform == 'linux2':
+            client_x, client_y = panel.ClientToScreen((0, 0))
+            border_width = client_x - rect.x
+            title_bar_height = client_y - rect.y
+            width += (border_width * 2)
+            height += title_bar_height + border_width
+
+        # Create a DC for the whole panel area
+        dcScreen = wx.ClientDC(panel)
+
+        # Create a Bitmap that will hold the screenshot image
+        bmp = wx.Bitmap(width, height)
+
+        # Create a memory DC that will be used for actually taking the screenshot
+        # All drawing action on the memory DC will go to the Bitmap
+        memDC = wx.MemoryDC()
+        memDC.SelectObject(bmp)
+
+        # Blit (in this case copy) the actual screen on the memory DC
+        # and thus the Bitmap
+        memDC.Blit(
+            0, # Copy to this X coordinate
+            0, # Copy to this Y coordinate
+            width, # Copy this width
+            height, # Copy this height
+            dcScreen, # From where do we copy?
+            rect.x, # What's the X offset in the original DC?
+            rect.y  # What's the Y offset in the original DC?
+        )
+
+        # Select the Bitmap out of the memory DC by selecting a new
+        # uninitialized Bitmap
+        memDC.SelectObject(wx.NullBitmap)
+        self._img = bmp.ConvertToImage()
+        self.extension = ".png"
+
+    def tofile(self, fname):
+        """
+        Write image to a file
+        """
+        self._img.SaveFile(fname, wx.BITMAP_TYPE_PNG)

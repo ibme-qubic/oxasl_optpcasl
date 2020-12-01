@@ -7,9 +7,20 @@ Copyright (c) 2020 University of Oxford
 
 import os
 import sys
+import webbrowser
 
-import wx
+# Check we have WX python because this is an optional dependency
+try:
+    import wx
+except ImportError:
+    sys.stderr.write("You need to install wxpython to use the GUI\n")
+    sys.stderr.write("Try: pip install wxpython\n")
+    sys.stderr.write(" or: conda install wxpython if you are using Conda\n")
+    sys.exit(1)
+
 from wx.lib.pubsub import pub
+
+from oxasl.reporting import Report
 
 from .scan_options import ScanOptions
 from .phys_params import PhysParamOptions
@@ -118,6 +129,16 @@ class OptPCASLGui(wx.Frame):
         params = protocol.initial_params()
         self._runner.run(protocol, self.opt.cost_model, initial_params=params, reps=niters, gridpts=self.opt.gridpts)
 
+    def generate_report(self, report_path):
+        """
+        """
+        report = Report("OXASL PCASL optimizer - Protocol report", include_timings=False)
+        for plot in (self._ss, self._cbf, self._att, self._curve):
+            plot.add_to_report(report)
+        report.generate(report_path)
+        from webbrowser import open
+        webbrowser.open("file://" + os.path.abspath(report_path) + "/index.html")
+
     def _opt_finished(self, output):
         self.opt._set_btn.Enable()
         if output is not None:
@@ -127,11 +148,75 @@ class OptPCASLGui(wx.Frame):
             for plot in (self._att, self._curve, self._cbf, self._ss):
                 plot.set(phys_params, protocol, output["params"], self.opt.cost_model)
 
+def create_app():
+    """
+    Create the wx App checking for dumb 'framework build' error on Mac
+
+    If we find this error, try to fix it if possible
+    """
+    try:
+        return wx.App(redirect=False)
+    except SystemExit as exc:
+        if sys.platform == "darwin" and "Framework" in str(exc):
+            # Ok this is a mega hack. If we are on Mac and it looks like it is the classic
+            # 'framework build on Conda' problem then we will first check the Conda framework
+            # build of python is installed, and if it is we will try to patch the launcher
+            # script to use it. There is a lot that can go wrong here so try to check for
+            # problems and bail out if we find any preferably without doing too much damage
+            # first
+            path_parts = os.path.normpath(sys.executable).split(os.sep)
+            conda_python_app = ""
+            for part in path_parts:
+                if part == "bin": break
+                conda_python_app += part + os.sep
+            conda_python_app += "python.app/Contents/MacOS/python"
+            if not os.path.exists(conda_python_app):
+                sys.stderr.write("You seem to have a Conda installation on Mac. We need\n")
+                sys.stderr.write("an extra package to run GUIs on Mac Conda. Please try:\n\n")
+                sys.stderr.write("  conda install python.app\n\n")
+                sys.stderr.write("then try running this program again\n")
+                sys.exit(1)
+            else:
+                launcher = sys.argv[0]
+                sys.stderr.write("WARNING: We have found a known problem with running GUI\n")
+                sys.stderr.write("applications on Mac. I will try to fix it now by modifying\n")
+                sys.stderr.write("the file:\n\n")
+                sys.stderr.write("  %s\n\n" % launcher)
+                head, tail = os.path.split(launcher)
+                with open(launcher) as launcher_file:
+                    launcher_code = launcher_file.readlines()
+                try:
+                    patched = False
+                    with open(launcher, "w") as new_launcher_file:
+                        for idx, line in enumerate(launcher_code):
+                            if idx == 0 and line.startswith("#!"):
+                                new_launcher_file.write("#!%s\n" % conda_python_app)
+                                patched = True
+                            else:
+                                new_launcher_file.write(line)
+
+                    if patched:
+                        sys.stderr.write("SUCCESS - trying to execute new launcher\n")
+                        sys.exit(os.execv(sys.argv[0], sys.argv))
+                    else:
+                        sys.stderr.write("FAILED - file listed above does not look like a normal GUI launcher\n")
+                        sys.stderr.write("Re-throwing original error - you may need to manually run this\n")
+                        sys.stderr.write("progam using pythonw or %s instead of just python\n" % conda_python_app)
+                        raise
+                except PermissionError:
+                    sys.stderr.write("FAILED to modify the launcher file because of insufficient permissions\n")
+                    sys.stderr.write("You can try either of the following\n")
+                    sys.stderr.write(" - Running this program ONCE using sudo (i.e. sudo %s)\n" % launcher)
+                    sys.stderr.write(" - OR editing the file above as an administrator and replacing\n")
+                    sys.stderr.write("   the first line with:\n\n")
+                    sys.stderr.write("#!%s\n\n" % conda_python_app)
+                    sys.exit(1)
+
 def main():
     """
     Program entry point
     """
-    app = wx.App(redirect=False)
+    app = create_app()
     top = OptPCASLGui()
     top.Show()
     app.MainLoop()
