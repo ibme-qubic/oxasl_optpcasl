@@ -54,11 +54,11 @@ class OptimizerOptions(TabPage):
 
     @property
     def pld_lims(self):
-        return Limits(self._pld_min.GetValue(), self._pld_max.GetValue(), self._pld_step.GetValue())
+        return Limits(self._pld_min.GetValue(), self._pld_max.GetValue(), self._pld_step.GetValue(), name="PLD")
 
     @property
     def ld_lims(self):
-        return Limits(self._ld_min.GetValue(), self._ld_max.GetValue(), self._ld_step.GetValue())
+        return Limits(self._ld_min.GetValue(), self._ld_max.GetValue(), self._ld_step.GetValue(), name="LD")
 
     @property
     def gridpts(self):
